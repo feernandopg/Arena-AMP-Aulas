@@ -87,10 +87,26 @@ def load_user(uid):
     return db.session.get(User, int(uid)) # Correção do Warning Legacy
 
 # --- ROTAS ---
-@app.route('/setup') # Rota de emergência
+@app.route('/setup')
 def setup():
-    db.create_all()
-    return "Banco atualizado."
+    try:
+        # 1. Cria as tabelas no Banco de Dados (PostgreSQL)
+        db.create_all()
+        
+        # 2. Cria o usuário Admin se ele não existir
+        if not User.query.filter_by(username='admin').first():
+            admin = User(username='admin')
+            admin.set_password('admin123')
+            db.session.add(admin)
+            db.session.commit()
+            msg = "Tabelas Criadas e Usuário Admin (admin/admin123) criado com sucesso!"
+        else:
+            msg = "O Banco já existe e o Admin já estava lá."
+
+        return f"<h1 style='color:green'>{msg}</h1><a href='/login'>Ir para Login</a>"
+    
+    except Exception as e:
+        return f"<h1 style='color:red'>Erro ao configurar banco: {str(e)}</h1>"
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
