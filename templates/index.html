@@ -22,9 +22,13 @@
 
 <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="sidebar-logo">
-            <h2>Arena AMP</h2>
-        </div>
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="sidebar-logo">
+    <h2>Arena AMP</h2>
+    
+    <button class="close-menu-btn" onclick="toggleMenu()">
+        <i class="fa-solid fa-xmark"></i>
+    </button>
+</div>
         
         <div class="sidebar-content">
             <div class="user-card">

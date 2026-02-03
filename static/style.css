@@ -535,3 +535,25 @@ input:focus, select:focus { border-color: var(--primary); }
 .content::-webkit-scrollbar-thumb:hover {
     background-color: var(--primary);
 }
+
+/* Botão de Fechar Menu (Só no Mobile) */
+.close-menu-btn {
+    display: none; /* Escondido no PC */
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--gray);
+    cursor: pointer;
+    margin-left: auto; /* Empurra para a direita */
+}
+
+@media (max-width: 768px) {
+    .close-menu-btn {
+        display: block; /* Aparece no Celular */
+    }
+    
+    /* Ajuste para o botão da Nova Turma ficar alinhado */
+    .mobile-actions {
+        margin-top: 10px;
+    }
+}

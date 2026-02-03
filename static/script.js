@@ -311,6 +311,7 @@ async function deleteClass(id) {
 // --- FUNÇÕES DE INTERFACE (UI) ---
 
 // Alternar Abas (Versão Robusta)
+// Alternar Abas (Com fechamento automático do menu no mobile)
 function switchTab(tab) {
     // 1. Esconde todas as seções
     document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
@@ -319,15 +320,20 @@ function switchTab(tab) {
     const targetSection = document.getElementById(`view-${tab}`);
     if(targetSection) targetSection.classList.add('active');
 
-    // 3. Atualiza os botões do menu com base no atributo onclick
+    // 3. Atualiza os botões do menu
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.classList.remove('active');
-        // Verifica se o onclick do botão contém o nome da aba (ex: 'students')
         const clickAttr = btn.getAttribute('onclick');
         if (clickAttr && clickAttr.includes(tab)) {
             btn.classList.add('active');
         }
     });
+
+    // --- NOVIDADE: Fecha o menu lateral se estiver no celular ---
+    const sb = document.getElementById('sidebar');
+    if (window.innerWidth <= 768 && sb.classList.contains('active')) {
+        sb.classList.remove('active');
+    }
 }
 
 // Alternar Filtro de Reposição
