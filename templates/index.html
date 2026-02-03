@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='logo.ico') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Arena AMP Aulas</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="layout">
+    <nav class="mobile-nav">
+        <div class="brand-box">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="nav-logo">
+            <span class="logo">Arena AMP</span>
+        </div>
+        <button onclick="toggleMenu()"><i class="fa-solid fa-bars"></i></button>
+    </nav>
+
+<aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="sidebar-logo">
+            <h2>Arena AMP</h2>
+        </div>
+        
+        <div class="sidebar-content">
+            <div class="user-card">
+                <i class="fa-regular fa-user-circle"></i>
+                <div>
+                    <strong>{{ user.username }}</strong>
+                    <a href="/logout" class="logout">Sair</a>
+                </div>
+            </div>
+
+            <div class="nav-buttons">
+                <button class="nav-btn active" onclick="switchTab('students')">
+                    <i class="fa-solid fa-users"></i> Alunos
+                </button>
+                <button class="nav-btn" onclick="switchTab('classes')">
+                    <i class="fa-solid fa-calendar-days"></i> Quadro de Aulas
+                </button>
+            </div>
+
+            <div class="stats">
+                <div class="stat-item" id="repoFilterCard" onclick="toggleRepoFilter()" style="cursor: pointer; transition:0.2s">
+                    <small>Reposições (Clique para Filtrar)</small>
+                    <strong id="totalReposicoes">0</strong>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="content">
+        
+        <div id="view-students" class="view-section active">
+            <header class="desktop-header">
+                <h1>Gerenciar Alunos</h1>
+                <button class="btn-primary" onclick="openStudentModal()">
+                    <i class="fa-solid fa-plus"></i> Novo Aluno
+                </button>
+            </header>
+            
+            <div class="mobile-actions">
+                 <input type="text" id="search" placeholder="Buscar aluno..." onkeyup="filterStudents()">
+                 <button class="btn-primary-mobile" onclick="openStudentModal()">+</button>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Aluno</th>
+                            <th>Turmas / Plano</th>
+                            <th class="hide-mobile">Próx. Pagamento</th>
+                            <th>Reposição</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentTableBody">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="view-classes" class="view-section">
+            <header class="desktop-header">
+                <h1>Quadro de Horários</h1>
+                <button class="btn-secondary" onclick="openClassModal()">
+                    <i class="fa-solid fa-plus"></i> Nova Turma
+                </button>
+            </header>
+            
+            <div class="class-grid" id="classGrid">
+                </div>
+        </div>
+
+        <div class="app-footer">
+            ©️ 𝓕𝓮𝓻𝓷𝓪𝓷𝓭𝓸 𝓟𝓻𝓮𝓼𝓽𝓮𝓼 𝓖𝓸𝓭𝓲𝓷𝓱𝓸
+        </div>
+
+    </main>
+</div>
+
+<div id="modalStudent" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Novo Aluno</h3>
+            <span class="close" onclick="closeModals()">&times;</span>
+        </div>
+        <form id="studentForm">
+            <label>Nome Completo</label>
+            <input type="text" id="name" required placeholder="Ex: Ana Souza">
+            
+            <div class="row">
+                <div>
+                    <label>Plano</label>
+                    <select id="plan" onchange="updatePrice()">
+                        <option value="Mensal">Mensal</option>
+                        <option value="Trimestral">Trimestral</option>
+                        <option value="Semestral">Semestral</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Início</label>
+                    <input type="date" id="startDate" required>
+                </div>
+            </div>
+            
+            <label>Valor Mensalidade (R$)</label>
+            <input type="number" id="price" required step="0.01">
+            
+            <label style="margin-top:15px; color:#64748b;">Selecionar Turmas:</label>
+            <div id="classSelector" class="class-selector-box">
+                </div>
+
+            <button type="submit" class="btn-save">Salvar Aluno</button>
+        </form>
+    </div>
+</div>
+
+<div id="modalClass" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Nova Turma</h3>
+            <span class="close" onclick="closeModals()">&times;</span>
+        </div>
+        <form id="classForm">
+            <label>Dia da Semana</label>
+            <select id="classDay">
+                <option value="Segunda">Segunda</option>
+                <option value="Terça">Terça</option>
+                <option value="Quarta">Quarta</option>
+                <option value="Quinta">Quinta</option>
+                <option value="Sexta">Sexta</option>
+                <option value="Sábado">Sábado</option>
+            </select>
+            
+            <div class="row">
+                <div>
+                    <label>Horário</label>
+                    <input type="time" id="classTime" required>
+                </div>
+                <div>
+                    <label>Capacidade</label>
+                    <input type="number" id="classCapacity" value="6" min="1">
+                </div>
+            </div>
+            
+            <label>Professor Responsável</label>
+            <input type="text" id="classProf" required placeholder="Ex: Prof. Lucas">
+            
+            <button type="submit" class="btn-save" style="background-color: #1e293b;">Criar Turma</button>
+        </form>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

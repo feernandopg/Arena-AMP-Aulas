@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='logo.ico') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Arena AMP Aulas</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            background: #f1f5f9; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+            font-family: 'Inter', sans-serif; 
+        }
+        
+        .card { 
+            background: white; 
+            padding: 2.5rem; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); 
+            width: 90%; 
+            max-width: 350px; 
+            text-align: center; 
+        }
+
+        /* Estilo da Logo */
+        .logo-img {
+            max-width: 120px; /* Tamanho da logo */
+            height: auto;
+            margin-bottom: 1.5rem;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        h2 { 
+            color: #1e293b; 
+            margin-bottom: 1.5rem; 
+            font-size: 1.5rem;
+        }
+
+        input { 
+            width: 100%; 
+            padding: 12px; 
+            margin-bottom: 1rem; 
+            border: 1px solid #cbd5e1; 
+            border-radius: 8px; 
+            box-sizing: border-box; 
+            font-size: 1rem;
+            outline: none;
+            transition: 0.2s;
+        }
+
+        input:focus {
+            border-color: #FF914D; /* Laranja da marca */
+        }
+
+        button { 
+            width: 100%; 
+            padding: 12px; 
+            background: #FF914D; 
+            color: white; 
+            border: none; 
+            border-radius: 8px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            font-size: 1rem;
+            transition: 0.2s;
+        }
+
+        button:hover { 
+            background: #e07e3d; 
+            transform: translateY(-1px);
+        }
+
+        .error { 
+            color: #ef4444; 
+            background: #fef2f2;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.85rem; 
+            margin-bottom: 1rem; 
+            border: 1px solid #fee2e2;
+        }
+        
+        .footer {
+            margin-top: 1.5rem;
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Arena" class="logo-img">
+        
+        <h2>Arena AMP Aulas</h2>
+        
+        {% if error %}
+            <div class="error">{{ error }}</div>
+        {% endif %}
+        
+        <form method="POST">
+            <input type="text" name="username" placeholder="Usuário" required>
+            <input type="password" name="password" placeholder="Senha" required>
+            <button type="submit">Entrar no Sistema</button>
+        </form>
+
+        <div class="footer">
+           ©️ 𝓕𝓮𝓻𝓷𝓪𝓷𝓭𝓸 𝓟𝓻𝓮𝓼𝓽𝓮𝓼 𝓖𝓸𝓭𝓲𝓷𝓱𝓸 
+        </div>
+    </div>
+</body>
+</html>
