@@ -6,8 +6,6 @@ let repoFilter = false; // Estado do filtro de reposição
 // --- INICIALIZAÇÃO ---
 document.addEventListener('DOMContentLoaded', () => {
     loadAll();
-    
-    // Define a data de hoje como padrão no formulário com segurança de fuso horário
     setTodayDate();
 });
 
@@ -17,9 +15,9 @@ function setTodayDate() {
     if(dateInput) dateInput.value = today;
 }
 
-// Carrega tudo (Turmas e Alunos)
+// Carrega tudo
 async function loadAll() {
-    await fetchClasses();  // Importante carregar turmas antes para saber a lotação
+    await fetchClasses();
     await fetchStudents();
 }
 
@@ -47,30 +45,27 @@ function renderClassGrid() {
     if (!grid) return;
     grid.innerHTML = '';
 
-    // Ordem correta dos dias da semana
     const daysOrder = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
     
     daysOrder.forEach(day => {
-        // Filtra turmas deste dia e ordena por horário
         const classesToday = classesData
             .filter(c => c.day === day)
             .sort((a,b) => a.time.localeCompare(b.time));
         
         if (classesToday.length > 0) {
-            // Cria a coluna do dia
             const col = document.createElement('div');
             col.className = 'day-column';
             col.innerHTML = `<h3 style="color:#64748b; font-size:0.85rem; margin-bottom:8px; border-bottom:1px solid #eee; padding-bottom:5px;">${day}</h3>`;
             
-            // Cria os cards das turmas
             classesToday.forEach(c => {
                 const percent = (c.student_count / c.capacity) * 100;
                 const isFull = c.student_count >= c.capacity;
                 const statusColor = isFull ? 'var(--danger)' : 'var(--success)';
                 
+                // AQUI ESTÁ A CORREÇÃO DO CARD CLICÁVEL:
                 col.innerHTML += `
-                <div class="class-card">
-                    <div class="btn-del-class" onclick="deleteClass(${c.id})" title="Excluir Turma">
+                <div class="class-card" onclick="openClassDetails(${c.id})" style="cursor: pointer;">
+                    <div class="btn-del-class" onclick="event.stopPropagation(); deleteClass(${c.id})" title="Excluir Turma">
                         <i class="fa-solid fa-trash"></i>
                     </div>
                     
@@ -104,14 +99,12 @@ function renderStudentTable() {
     
     let list = studentsData;
     
-    // 1. Filtro de Texto (Busca)
     const searchInput = document.getElementById('search');
     if (searchInput && searchInput.value) {
         const term = searchInput.value.toLowerCase();
         list = list.filter(s => s.name.toLowerCase().includes(term));
     }
     
-    // 2. Filtro de Reposição (Toggle)
     if (repoFilter) {
         list = list.filter(s => s.reposicoes_count > 0);
         list.sort((a,b) => {
@@ -122,7 +115,6 @@ function renderStudentTable() {
     }
 
     list.forEach(s => {
-        // Lógica visual da reposição
         let repoHtml = '';
         const details = s.reposicoes_details?.[0]; 
         
@@ -159,7 +151,6 @@ function renderStudentTable() {
                 <button onclick="editStudent(${s.id})" style="border:none; background:none; color:var(--primary); cursor:pointer; padding:5px; margin-right:5px;" title="Editar">
                     <i class="fa-solid fa-pen"></i>
                 </button>
-                
                 <button onclick="deleteStudent(${s.id})" style="border:none; background:none; color:#cbd5e1; cursor:pointer; padding:5px;" title="Excluir">
                     <i class="fa-solid fa-trash"></i>
                 </button>
@@ -169,26 +160,25 @@ function renderStudentTable() {
     });
 }
 
-// --- FUNÇÃO DE EDITAR ALUNO ---
+// --- FUNÇÃO DE EDITAR ALUNO (CORRIGIDA) ---
 function editStudent(id) {
-    // 1. Acha o aluno na lista local
     const student = studentsData.find(s => s.id === id);
     if (!student) return;
 
-    // 2. Preenche os campos
-    document.getElementById('studentId').value = student.id; // Define o ID oculto
+    // 1. PRIMEIRO abre o modal (que limpa os campos)
+    openStudentModal(); 
+    
+    // 2. DEPOIS preenche os dados (agora não serão apagados)
+    document.getElementById('studentId').value = student.id; 
     document.getElementById('name').value = student.name;
     document.getElementById('plan').value = student.plan;
     document.getElementById('startDate').value = student.startDate;
     document.getElementById('price').value = student.price;
     
-    // 3. Abre o modal
-    openStudentModal(); 
-    
-    // 4. Ajusta título para "Editar"
+    // Muda título para "Editar"
     document.querySelector('#modalStudent h3').innerText = "Editar Aluno";
 
-    // 5. Marca os checkboxes das turmas que ele já tem
+    // Marca os checkboxes
     if (student.class_ids && student.class_ids.length > 0) {
         student.class_ids.forEach(clsId => {
             const checkbox = document.querySelector(`input[name="selectedClasses"][value="${clsId}"]`);
@@ -202,17 +192,16 @@ function openStudentModal() {
     const container = document.getElementById('classSelector');
     container.innerHTML = '';
     
-    // Reset IMPORTANTE: Limpa o ID e volta o título para "Novo"
+    // Reset IMPORTANTE
     document.getElementById('studentId').value = ''; 
     document.querySelector('#modalStudent h3').innerText = "Novo Aluno";
     document.getElementById('studentForm').reset();
     setTodayDate();
 
     if (classesData.length === 0) {
-        container.innerHTML = '<div style="padding:10px; color:gray; font-size:0.8rem">Nenhuma turma cadastrada. Crie turmas no Quadro de Aulas primeiro.</div>';
+        container.innerHTML = '<div style="padding:10px; color:gray; font-size:0.8rem">Nenhuma turma cadastrada.</div>';
     }
 
-    // Ordena as opções por dia para ficar organizado
     const daysOrder = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
     const sortedClasses = [...classesData].sort((a,b) => {
         return daysOrder.indexOf(a.day) - daysOrder.indexOf(b.day) || a.time.localeCompare(b.time);
@@ -236,26 +225,71 @@ function openStudentModal() {
     document.getElementById('modalStudent').style.display = 'flex';
 }
 
+// --- LOGICA DO MODAL DE DETALHES DA TURMA ---
+function openClassDetails(classId) {
+    const cls = classesData.find(c => c.id === classId);
+    if (!cls) return;
+
+    document.getElementById('currentClassId').value = cls.id;
+    document.getElementById('detailClassTitle').innerText = `${cls.day} - ${cls.time} (${cls.professor})`;
+    
+    renderEnrolledList(cls);
+    renderStudentSelect(cls);
+    
+    document.getElementById('modalClassDetails').style.display = 'flex';
+}
+
+function renderEnrolledList(cls) {
+    const list = document.getElementById('enrolledList');
+    list.innerHTML = '';
+
+    if (!cls.students || cls.students.length === 0) {
+        list.innerHTML = '<div style="color:#94a3b8; font-size:0.85rem; text-align:center; padding:10px;">Nenhum aluno nesta turma.</div>';
+        return;
+    }
+
+    cls.students.forEach(s => {
+        list.innerHTML += `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; background:white; border:1px solid #e2e8f0; border-radius:6px;">
+                <span style="font-weight:600; color:var(--dark)">${s.name}</span>
+                <button onclick="removeStudentFromClass(${s.id})" style="color:#ef4444; background:none; border:none; cursor:pointer;" title="Remover da aula">
+                    <i class="fa-solid fa-user-minus"></i>
+                </button>
+            </div>
+        `;
+    });
+}
+
+function renderStudentSelect(cls) {
+    const select = document.getElementById('studentToAdd');
+    select.innerHTML = '<option value="">Selecione um aluno...</option>';
+    
+    const enrolledIds = cls.students ? cls.students.map(s => s.id) : [];
+    const sortedStudents = [...studentsData].sort((a,b) => a.name.localeCompare(b.name));
+
+    sortedStudents.forEach(s => {
+        if (!enrolledIds.includes(s.id)) {
+            select.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+        }
+    });
+}
+
 // --- ENVIAR FORMULÁRIO DE ALUNO (CRIAR OU EDITAR) ---
 document.getElementById('studentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
     try {
-        const id = document.getElementById('studentId').value; // Pega o ID
-        const isEdit = id ? true : false; // Tem ID? Então é edição.
+        const id = document.getElementById('studentId').value;
+        const isEdit = id ? true : false; // Verifica se tem ID
 
-        // 1. Captura Turmas Selecionadas
         const checkboxes = document.querySelectorAll('input[name="selectedClasses"]:checked');
         const classIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
 
-        // 2. Calcula Datas
         const startInput = document.getElementById('startDate').value;
         const plan = document.getElementById('plan').value;
         const start = new Date(startInput);
         
-        // Recalcula datas baseado no plano selecionado (mesmo na edição)
         const months = plan === 'Mensal' ? 1 : plan === 'Trimestral' ? 3 : 6;
-        
         const endObj = new Date(start);
         endObj.setMonth(endObj.getMonth() + months);
         const endDate = endObj.toISOString().split('T')[0];
@@ -264,7 +298,6 @@ document.getElementById('studentForm').addEventListener('submit', async (e) => {
         nextObj.setMonth(nextObj.getMonth() + 1);
         const nextPay = nextObj.toISOString().split('T')[0];
 
-        // 3. Monta Objeto
         const data = {
             name: document.getElementById('name').value,
             plan: plan,
@@ -275,11 +308,9 @@ document.getElementById('studentForm').addEventListener('submit', async (e) => {
             classIds: classIds 
         };
 
-        // 4. Define URL e Método
         const url = isEdit ? `/api/students/${id}/update` : '/api/students';
         const method = isEdit ? 'PUT' : 'POST';
 
-        // 5. Envia
         const response = await fetch(url, { 
             method: method, 
             headers:{'Content-Type':'application/json'}, 
@@ -290,11 +321,8 @@ document.getElementById('studentForm').addEventListener('submit', async (e) => {
 
         closeModals();
         loadAll(); 
-        
-        // Reset Limpo
         e.target.reset();
         setTodayDate();
-        
         alert(isEdit ? "Aluno atualizado!" : "Aluno cadastrado!"); 
 
     } catch (error) {
@@ -303,49 +331,79 @@ document.getElementById('studentForm').addEventListener('submit', async (e) => {
     }
 });
 
-// --- ENVIAR FORMULÁRIO DE TURMA ---
+// --- AÇÕES DIVERSAS ---
+
 document.getElementById('classForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    
     const data = {
         day: document.getElementById('classDay').value,
         time: document.getElementById('classTime').value,
         capacity: document.getElementById('classCapacity').value,
         professor: document.getElementById('classProf').value
     };
-    
     await fetch('/api/classes', { 
         method:'POST', 
         headers:{'Content-Type':'application/json'}, 
         body:JSON.stringify(data)
     });
-    
     closeModals();
-    fetchClasses(); // Atualiza só as turmas
+    fetchClasses(); 
     e.target.reset();
 });
 
-// --- AÇÕES (BOTOES) ---
+async function addStudentToCurrentClass() {
+    const classId = document.getElementById('currentClassId').value;
+    const studentId = document.getElementById('studentToAdd').value;
+    if (!studentId) return alert("Selecione um aluno primeiro.");
 
-// Reposição (+ ou -)
+    await fetch(`/api/classes/${classId}/add_student`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ student_id: studentId })
+    });
+
+    await loadAll(); 
+    const updatedClass = classesData.find(c => c.id == classId);
+    if (updatedClass) {
+        renderEnrolledList(updatedClass);
+        renderStudentSelect(updatedClass);
+    }
+}
+
+async function removeStudentFromClass(studentId) {
+    if(!confirm("Remover este aluno desta aula específica?")) return;
+    const classId = document.getElementById('currentClassId').value;
+
+    await fetch(`/api/classes/${classId}/remove_student`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ student_id: studentId })
+    });
+
+    await loadAll();
+    const updatedClass = classesData.find(c => c.id == classId);
+    if (updatedClass) {
+        renderEnrolledList(updatedClass);
+        renderStudentSelect(updatedClass);
+    }
+}
+
 async function changeRepo(id, change) {
     await fetch(`/api/students/${id}/reposicao`, { 
         method:'POST', 
         headers:{'Content-Type':'application/json'}, 
         body:JSON.stringify({change}) 
     });
-    fetchStudents(); // Atualiza tabela
+    fetchStudents();
 }
 
-// Deletar Aluno
 async function deleteStudent(id) { 
-    if(confirm('Tem certeza que deseja remover este aluno? As vagas nas turmas serão liberadas.')) { 
+    if(confirm('Tem certeza que deseja remover este aluno?')) { 
         await fetch(`/api/students/${id}/delete`, {method:'DELETE'}); 
         loadAll(); 
     } 
 }
 
-// Deletar Turma
 async function deleteClass(id) { 
     if(confirm('Tem certeza que deseja excluir esta turma?')) { 
         await fetch(`/api/classes/${id}`, {method:'DELETE'}); 
@@ -353,38 +411,28 @@ async function deleteClass(id) {
     } 
 }
 
-// --- FUNÇÕES DE INTERFACE (UI) ---
+// --- UI UTILS ---
 
-// Alternar Abas (Com fechamento automático do menu no mobile)
 function switchTab(tab) {
-    // 1. Esconde todas as seções
     document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
-    
-    // 2. Mostra a selecionada
     const targetSection = document.getElementById(`view-${tab}`);
     if(targetSection) targetSection.classList.add('active');
 
-    // 3. Atualiza os botões do menu
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.classList.remove('active');
         const clickAttr = btn.getAttribute('onclick');
-        if (clickAttr && clickAttr.includes(tab)) {
-            btn.classList.add('active');
-        }
+        if (clickAttr && clickAttr.includes(tab)) btn.classList.add('active');
     });
 
-    // Fecha o menu lateral se estiver no celular
     const sb = document.getElementById('sidebar');
     if (window.innerWidth <= 768 && sb.classList.contains('active')) {
         sb.classList.remove('active');
     }
 }
 
-// Alternar Filtro de Reposição
 function toggleRepoFilter() {
     repoFilter = !repoFilter;
     const card = document.getElementById('repoFilterCard');
-    
     if (repoFilter) {
         card.style.border = '2px solid var(--primary)';
         card.style.background = '#fff7ed';
@@ -392,13 +440,10 @@ function toggleRepoFilter() {
         card.style.border = '1px solid transparent';
         card.style.background = 'var(--light)';
     }
-    
-    // Força ir para a aba de alunos e renderiza
     switchTab('students');
     renderStudentTable();
 }
 
-// Atualiza Números do Topo
 function updateStats() {
     if(!studentsData) return;
     const totalRepos = studentsData.reduce((acc,s) => acc + (s.reposicoes_count || 0), 0);
@@ -406,7 +451,6 @@ function updateStats() {
     if(el) el.innerText = totalRepos;
 }
 
-// Sugestão de Preço
 function updatePrice() {
     const p = document.getElementById('plan').value;
     const i = document.getElementById('price');
@@ -415,16 +459,13 @@ function updatePrice() {
     if(p==='Semestral') i.value=250;
 }
 
-// Utilitários
 function formatDate(d) { 
     if(!d) return '-'; 
     const p = d.split('-'); 
-    // Garante que array tenha 3 partes (YYYY-MM-DD)
     if(p.length < 3) return d;
-    return `${p[2]}/${p[1]}`; // Retorna Dia/Mês
+    return `${p[2]}/${p[1]}`;
 }
 
-// Menu Mobile
 function toggleMenu() { 
     const sb = document.getElementById('sidebar');
     if(sb) sb.classList.toggle('active'); 
@@ -442,7 +483,6 @@ function filterStudents() {
     renderStudentTable(); 
 }
 
-// Fecha modal ao clicar fora
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', (e) => {
         if (e.target === overlay) closeModals();
