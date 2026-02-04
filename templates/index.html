@@ -20,15 +20,15 @@
         <button onclick="toggleMenu()"><i class="fa-solid fa-bars"></i></button>
     </nav>
 
-<aside class="sidebar" id="sidebar">
+    <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
-    <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="sidebar-logo">
-    <h2>Arena AMP</h2>
-    
-    <button class="close-menu-btn" onclick="toggleMenu()">
-        <i class="fa-solid fa-xmark"></i>
-    </button>
-</div>
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="sidebar-logo">
+            <h2>Arena AMP</h2>
+            
+            <button class="close-menu-btn" onclick="toggleMenu()">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
         
         <div class="sidebar-content">
             <div class="user-card">
@@ -97,6 +97,12 @@
                 </button>
             </header>
             
+            <div class="mobile-actions" style="justify-content: flex-end;">
+                <button class="btn-primary-mobile" onclick="openClassModal()" style="background-color: var(--dark);">
+                     <i class="fa-solid fa-plus"></i>
+                </button>
+             </div>
+            
             <div class="class-grid" id="classGrid">
                 </div>
         </div>
@@ -115,6 +121,8 @@
             <span class="close" onclick="closeModals()">&times;</span>
         </div>
         <form id="studentForm">
+            <input type="hidden" id="studentId">
+            
             <label>Nome Completo</label>
             <input type="text" id="name" required placeholder="Ex: Ana Souza">
             

@@ -114,7 +114,6 @@ function renderStudentTable() {
     // 2. Filtro de Reposição (Toggle)
     if (repoFilter) {
         list = list.filter(s => s.reposicoes_count > 0);
-        // Ordena por quem expira primeiro (Proteção adicionada com ?.)
         list.sort((a,b) => {
             const expA = a.reposicoes_details?.[0]?.expires || '9999-99-99';
             const expB = b.reposicoes_details?.[0]?.expires || '9999-99-99';
@@ -123,15 +122,14 @@ function renderStudentTable() {
     }
 
     list.forEach(s => {
-        // Lógica visual da reposição (Proteção contra array vazio)
+        // Lógica visual da reposição
         let repoHtml = '';
-        const details = s.reposicoes_details?.[0]; // Pega o primeiro detalhe se existir
+        const details = s.reposicoes_details?.[0]; 
         
         if (repoFilter && s.reposicoes_count > 0 && details) {
             const exp = details.expires.split('-');
             repoHtml = `<span class="repo-alert"><i class="fa-regular fa-clock"></i> Vence: ${exp[2]}/${exp[1]}</span>`;
         } else if (repoFilter && s.reposicoes_count > 0) {
-             // Caso tenha contagem mas não tenha data (erro de dados), mostra genérico
              repoHtml = `<span class="repo-alert">Pendente</span>`;
         }
 
@@ -158,7 +156,11 @@ function renderStudentTable() {
                 </div>
             </td>
             <td style="text-align:right;">
-                <button onclick="deleteStudent(${s.id})" style="border:none; background:none; color:#cbd5e1; cursor:pointer; padding:5px;">
+                <button onclick="editStudent(${s.id})" style="border:none; background:none; color:var(--primary); cursor:pointer; padding:5px; margin-right:5px;" title="Editar">
+                    <i class="fa-solid fa-pen"></i>
+                </button>
+                
+                <button onclick="deleteStudent(${s.id})" style="border:none; background:none; color:#cbd5e1; cursor:pointer; padding:5px;" title="Excluir">
                     <i class="fa-solid fa-trash"></i>
                 </button>
             </td>
@@ -167,11 +169,45 @@ function renderStudentTable() {
     });
 }
 
+// --- FUNÇÃO DE EDITAR ALUNO ---
+function editStudent(id) {
+    // 1. Acha o aluno na lista local
+    const student = studentsData.find(s => s.id === id);
+    if (!student) return;
+
+    // 2. Preenche os campos
+    document.getElementById('studentId').value = student.id; // Define o ID oculto
+    document.getElementById('name').value = student.name;
+    document.getElementById('plan').value = student.plan;
+    document.getElementById('startDate').value = student.startDate;
+    document.getElementById('price').value = student.price;
+    
+    // 3. Abre o modal
+    openStudentModal(); 
+    
+    // 4. Ajusta título para "Editar"
+    document.querySelector('#modalStudent h3').innerText = "Editar Aluno";
+
+    // 5. Marca os checkboxes das turmas que ele já tem
+    if (student.class_ids && student.class_ids.length > 0) {
+        student.class_ids.forEach(clsId => {
+            const checkbox = document.querySelector(`input[name="selectedClasses"][value="${clsId}"]`);
+            if (checkbox) checkbox.checked = true;
+        });
+    }
+}
+
 // --- MODAL: POPULAR CHECKBOXES DE TURMAS ---
 function openStudentModal() {
     const container = document.getElementById('classSelector');
     container.innerHTML = '';
     
+    // Reset IMPORTANTE: Limpa o ID e volta o título para "Novo"
+    document.getElementById('studentId').value = ''; 
+    document.querySelector('#modalStudent h3').innerText = "Novo Aluno";
+    document.getElementById('studentForm').reset();
+    setTodayDate();
+
     if (classesData.length === 0) {
         container.innerHTML = '<div style="padding:10px; color:gray; font-size:0.8rem">Nenhuma turma cadastrada. Crie turmas no Quadro de Aulas primeiro.</div>';
     }
@@ -200,61 +236,70 @@ function openStudentModal() {
     document.getElementById('modalStudent').style.display = 'flex';
 }
 
-// --- ENVIAR FORMULÁRIO DE ALUNO ---
+// --- ENVIAR FORMULÁRIO DE ALUNO (CRIAR OU EDITAR) ---
 document.getElementById('studentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
     try {
-        // 1. Captura Turmas Selecionadas e CONVERTE PARA NÚMERO
+        const id = document.getElementById('studentId').value; // Pega o ID
+        const isEdit = id ? true : false; // Tem ID? Então é edição.
+
+        // 1. Captura Turmas Selecionadas
         const checkboxes = document.querySelectorAll('input[name="selectedClasses"]:checked');
         const classIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
 
         // 2. Calcula Datas
         const startInput = document.getElementById('startDate').value;
-        if (!startInput) throw new Error("A data de início é obrigatória.");
-        
-        const start = new Date(startInput);
         const plan = document.getElementById('plan').value;
+        const start = new Date(startInput);
+        
+        // Recalcula datas baseado no plano selecionado (mesmo na edição)
         const months = plan === 'Mensal' ? 1 : plan === 'Trimestral' ? 3 : 6;
         
-        const end = new Date(start);
-        end.setMonth(end.getMonth() + months);
-        
-        const nextPay = new Date(start);
-        nextPay.setMonth(nextPay.getMonth() + 1);
+        const endObj = new Date(start);
+        endObj.setMonth(endObj.getMonth() + months);
+        const endDate = endObj.toISOString().split('T')[0];
+
+        const nextObj = new Date(start);
+        nextObj.setMonth(nextObj.getMonth() + 1);
+        const nextPay = nextObj.toISOString().split('T')[0];
 
         // 3. Monta Objeto
         const data = {
             name: document.getElementById('name').value,
             plan: plan,
             price: document.getElementById('price').value,
-            startDate: start.toISOString().split('T')[0],
-            endDate: end.toISOString().split('T')[0],
-            nextPayment: nextPay.toISOString().split('T')[0],
+            startDate: startInput,
+            endDate: endDate,
+            nextPayment: nextPay,
             classIds: classIds 
         };
 
-        // 4. Envia
-        const response = await fetch('/api/students', { 
-            method:'POST', 
+        // 4. Define URL e Método
+        const url = isEdit ? `/api/students/${id}/update` : '/api/students';
+        const method = isEdit ? 'PUT' : 'POST';
+
+        // 5. Envia
+        const response = await fetch(url, { 
+            method: method, 
             headers:{'Content-Type':'application/json'}, 
             body:JSON.stringify(data)
         });
 
-        if (!response.ok) throw new Error("Erro no servidor ao salvar aluno.");
+        if (!response.ok) throw new Error("Erro no servidor.");
 
         closeModals();
         loadAll(); 
         
-        // Reset Limpo e Seguro
+        // Reset Limpo
         e.target.reset();
-        setTodayDate(); // Re-aplica a data de hoje corretamente
+        setTodayDate();
         
-        alert("Aluno salvo com sucesso!"); 
+        alert(isEdit ? "Aluno atualizado!" : "Aluno cadastrado!"); 
 
     } catch (error) {
         console.error(error);
-        alert("Erro ao salvar: " + error.message);
+        alert("Erro: " + error.message);
     }
 });
 
@@ -310,7 +355,6 @@ async function deleteClass(id) {
 
 // --- FUNÇÕES DE INTERFACE (UI) ---
 
-// Alternar Abas (Versão Robusta)
 // Alternar Abas (Com fechamento automático do menu no mobile)
 function switchTab(tab) {
     // 1. Esconde todas as seções
@@ -329,7 +373,7 @@ function switchTab(tab) {
         }
     });
 
-    // --- NOVIDADE: Fecha o menu lateral se estiver no celular ---
+    // Fecha o menu lateral se estiver no celular
     const sb = document.getElementById('sidebar');
     if (window.innerWidth <= 768 && sb.classList.contains('active')) {
         sb.classList.remove('active');
