@@ -136,6 +136,23 @@ def logout(): logout_user(); return redirect(url_for('login'))
 @login_required
 def index(): return render_template('index.html', user=current_user)
 
+@app.route('/reset-banco-de-dados')
+def reset_db():
+    try:
+        # PERIGO: Isso apaga tudo e recria do zero
+        db.drop_all()
+        db.create_all()
+        
+        # Recria o Admin
+        admin = User(username='admin')
+        admin.set_password('admin123')
+        db.session.add(admin)
+        db.session.commit()
+        
+        return "<h1 style='color:blue'>Banco de Dados RESETADO com sucesso! Tabela 'users' criada. <a href='/login'>Ir para Login</a></h1>"
+    except Exception as e:
+        return f"<h1>Erro: {e}</h1>"
+
 # --- API: TURMAS ---
 
 @app.route('/api/classes', methods=['GET', 'POST'])
