@@ -68,21 +68,28 @@ class Student(db.Model):
     start_date = db.Column(db.String(10), nullable=False)
     end_date = db.Column(db.String(10), nullable=False)
     next_payment = db.Column(db.String(10), nullable=False)
+    
+    # --- NOVOS CAMPOS AQUI ---
+    last_payment = db.Column(db.String(10), nullable=True) # Pode ser vazio se nunca pagou
+    classes_per_week = db.Column(db.Integer, default=2) # Quantidade de aulas permitidas
+    # -------------------------
+    
     price = db.Column(db.Float, nullable=False)
     
-    # Relacionamentos
     replacements = db.relationship('Replacement', backref='student', lazy=True, cascade="all, delete-orphan")
     classes = db.relationship('ClassSession', secondary=enrollments, lazy='subquery',
                               backref=db.backref('students', lazy=True))
 
     def to_dict(self):
-        # Cria string bonita das turmas (Ex: "Seg 19h, Qua 20h")
         classes_str = ", ".join([f"{c.day[:3]} {c.time}" for c in self.classes])
         
         return {
             'id': self.id, 'name': self.name, 'plan': self.plan,
             'startDate': self.start_date, 'endDate': self.end_date,
-            'nextPayment': self.next_payment, 'price': self.price,
+            'nextPayment': self.next_payment, 
+            'lastPayment': self.last_payment,           # NOVO
+            'classesPerWeek': self.classes_per_week,    # NOVO
+            'price': self.price,
             'classes_desc': classes_str,
             'class_ids': [c.id for c in self.classes],
             'reposicoes_count': len(self.replacements),
@@ -222,7 +229,10 @@ def manage_students():
     d = request.json
     new_s = Student(
         name=d['name'], plan=d['plan'], price=float(d['price']),
-        start_date=d['startDate'], end_date=d['endDate'], next_payment=d['nextPayment']
+        start_date=d['startDate'], end_date=d['endDate'], 
+        next_payment=d['nextPayment'],
+        last_payment=d.get('lastPayment', ''),         # NOVO
+        classes_per_week=int(d.get('classesPerWeek', 2)) # NOVO
     )
     
     # Vincular turmas
@@ -254,6 +264,8 @@ def update_student_data(id):
     s.start_date = d['startDate']
     s.end_date = d['endDate']
     s.next_payment = d['nextPayment']
+    s.last_payment = d.get('lastPayment', '')         
+    s.classes_per_week = int(d.get('classesPerWeek', 2)) 
 
     # Atualiza as Turmas (Limpa as antigas e adiciona as novas)
     s.classes = [] 
