@@ -89,7 +89,7 @@ function renderClassGrid() {
                 
                 col.innerHTML += `
                 <div class="class-card" onclick="openClassDetails(${c.id})" style="cursor: pointer;">
-                    <div class="btn-del-class" onclick="event.stopPropagation(); deleteClass(${c.id})"><i class="fa-solid fa-trash"></i></div>
+                    <div class="btn-del-class" onclick="event.stopPropagation(); deleteClass(${c.id}, this)"><i class="fa-solid fa-trash"></i></div>
                     <div class="class-header"><span class="class-time">${c.time}</span><span class="class-prof">${c.professor}</span></div>
                     <div class="class-meta">
                         <span><i class="fa-solid fa-user-group"></i> ${c.student_count}/${c.capacity}</span>
@@ -144,14 +144,13 @@ function renderStudentTable() {
             </td>
             <td style="text-align:right;">
                 <button onclick="editStudent(${s.id})" style="border:none; background:none; color:var(--primary); cursor:pointer; padding:5px; margin-right:5px;"><i class="fa-solid fa-pen"></i></button>
-                <button onclick="deleteStudent(${s.id})" style="border:none; background:none; color:#cbd5e1; cursor:pointer; padding:5px;"><i class="fa-solid fa-trash"></i></button>
+                <button onclick="deleteStudent(${s.id}, this)" style="border:none; background:none; color:#cbd5e1; cursor:pointer; padding:5px;"><i class="fa-solid fa-trash"></i></button>
             </td>
         `;
         tbody.appendChild(tr);
     });
 }
 
-// --- NOVO: LÓGICA DO MODAL MODERNO DE AÇÕES ---
 function openActionModal(id) {
     const s = studentsData.find(st => st.id === id);
     if (!s) return;
@@ -214,31 +213,30 @@ function renderActionModalContent(s) {
     `;
 }
 
+// TRAVA 1: Modal de Ações
+let isProcessingAction = false;
 async function studentAction(btnElement, id, actionStr) {
-    // 1. EFEITO VISUAL DE CARREGANDO (Bloqueia múltiplos cliques)
+    if (isProcessingAction) return; // Ignora se já estiver salvando
+    isProcessingAction = true;
+    
     const originalContent = btnElement.innerHTML;
     btnElement.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processando...';
-    btnElement.style.opacity = '0.7';
-    btnElement.style.pointerEvents = 'none';
+    btnElement.style.opacity = '0.5';
 
     try {
         await fetch(`/api/students/${id}/action`, { 
-            method:'POST', 
-            headers:{'Content-Type':'application/json'}, 
-            body:JSON.stringify({action: actionStr}) 
+            method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action: actionStr}) 
         });
-        await fetchStudents(); // Atualiza os dados silenciosamente
+        await fetchStudents(); 
         
-        // Se o modal ainda estiver aberto, atualiza a tela dele na mesma hora
         const updatedStudent = studentsData.find(st => st.id === id);
         if (updatedStudent && document.getElementById('modalActions').style.display === 'flex') {
             renderActionModalContent(updatedStudent);
         }
     } catch (e) {
         alert("Erro na conexão!");
-        btnElement.innerHTML = originalContent; // Restaura se der erro
-        btnElement.style.opacity = '1';
-        btnElement.style.pointerEvents = 'auto';
+    } finally {
+        isProcessingAction = false;
     }
 }
 
@@ -320,7 +318,7 @@ function renderEnrolledList(cls) {
     cls.students.forEach(s => {
         list.innerHTML += `<div style="display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid #eee;">
             <span style="font-weight:600;">${s.name}</span>
-            <button onclick="removeStudentFromClass(${s.id})" style="color:#ef4444; background:none; border:none; cursor:pointer;"><i class="fa-solid fa-user-minus"></i></button>
+            <button onclick="removeStudentFromClass(${s.id}, this)" style="color:#ef4444; background:none; border:none; cursor:pointer;"><i class="fa-solid fa-user-minus"></i></button>
         </div>`;
     });
 }
@@ -334,12 +332,12 @@ function renderStudentSelect(cls) {
     });
 }
 
-// --- PROTEÇÃO CONTRA CADASTRO DUPLO AQUI ---
+// TRAVA 2: Salvar Aluno
 document.getElementById('studentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    
-    // Trava o botão de salvar
     const submitBtn = e.target.querySelector('button[type="submit"]');
+    if (submitBtn.disabled) return; // Impede duplo envio
+    
     const originalBtnText = submitBtn.innerHTML;
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';
@@ -349,7 +347,6 @@ document.getElementById('studentForm').addEventListener('submit', async (e) => {
         const id = document.getElementById('studentId').value;
         const isEdit = id ? true : false; 
         const classIds = Array.from(document.querySelectorAll('input[name="selectedClasses"]:checked')).map(cb => parseInt(cb.value));
-
         const startInput = document.getElementById('startDate').value;
         const plan = document.getElementById('plan').value;
         
@@ -360,65 +357,87 @@ document.getElementById('studentForm').addEventListener('submit', async (e) => {
         const endDate = endObj.toISOString().split('T')[0];
 
         const data = {
-            name: document.getElementById('name').value,
-            plan: plan,
-            price: document.getElementById('price').value,
-            startDate: startInput,
-            endDate: endDate,
-            nextPayment: document.getElementById('nextPayment').value,     
-            lastPayment: document.getElementById('lastPayment').value,     
-            classesPerWeek: document.getElementById('classesPerWeek').value, 
-            saldoAulas: document.getElementById('saldoAulas').value,
-            classIds: classIds 
+            name: document.getElementById('name').value, plan: plan, price: document.getElementById('price').value,
+            startDate: startInput, endDate: endDate, nextPayment: document.getElementById('nextPayment').value,     
+            lastPayment: document.getElementById('lastPayment').value, classesPerWeek: document.getElementById('classesPerWeek').value, 
+            saldoAulas: document.getElementById('saldoAulas').value, classIds: classIds 
         };
 
         const url = isEdit ? `/api/students/${id}/update` : '/api/students';
         const method = isEdit ? 'PUT' : 'POST';
 
-        const response = await fetch(url, { method: method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
-        if (!response.ok) throw new Error("Erro no servidor.");
-
+        await fetch(url, { method: method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
         closeModals();
         await loadAll(); 
         e.target.reset();
         setTodayDate();
-
     } catch (error) { 
         alert("Erro: " + error.message); 
     } finally {
-        // Destrava o botão aconteça o que acontecer
         submitBtn.disabled = false;
         submitBtn.innerHTML = originalBtnText;
         submitBtn.style.opacity = '1';
     }
 });
 
+// TRAVA 3: Salvar Turma (A CULPADA PELA DUPLICIDADE FOI CORRIGIDA)
 document.getElementById('classForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const data = {
-        day: document.getElementById('classDay').value,
-        time: document.getElementById('classTime').value,
-        capacity: document.getElementById('classCapacity').value,
-        professor: document.getElementById('classProf').value
-    };
-    await fetch('/api/classes', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
-    closeModals();
-    fetchClasses(); 
-    e.target.reset();
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    if (submitBtn.disabled) return; 
+    
+    const originalBtnText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Criando...';
+    submitBtn.style.opacity = '0.7';
+
+    try {
+        const data = {
+            day: document.getElementById('classDay').value, time: document.getElementById('classTime').value,
+            capacity: document.getElementById('classCapacity').value, professor: document.getElementById('classProf').value
+        };
+        await fetch('/api/classes', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
+        closeModals();
+        await fetchClasses(); 
+        e.target.reset();
+    } catch (error) {
+        alert("Erro ao criar turma.");
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+        submitBtn.style.opacity = '1';
+    }
 });
 
+// TRAVA 4: Adicionar aluno na turma
+let isAddingStudent = false;
 async function addStudentToCurrentClass() {
+    if (isAddingStudent) return;
     const classId = document.getElementById('currentClassId').value;
     const studentId = document.getElementById('studentToAdd').value;
     if (!studentId) return;
-    await fetch(`/api/classes/${classId}/add_student`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ student_id: studentId }) });
-    await loadAll(); 
-    const updatedClass = classesData.find(c => c.id == classId);
-    if (updatedClass) { renderEnrolledList(updatedClass); renderStudentSelect(updatedClass); }
+    
+    isAddingStudent = true;
+    const btn = document.querySelector('#modalClassDetails .btn-primary');
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+    try {
+        await fetch(`/api/classes/${classId}/add_student`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ student_id: studentId }) });
+        await loadAll(); 
+        const updatedClass = classesData.find(c => c.id == classId);
+        if (updatedClass) { renderEnrolledList(updatedClass); renderStudentSelect(updatedClass); }
+    } finally {
+        isAddingStudent = false;
+        btn.innerHTML = originalHtml;
+    }
 }
 
-async function removeStudentFromClass(studentId) {
+// TRAVA 5: Exclusões
+async function removeStudentFromClass(studentId, btnElement) {
     if(!confirm("Remover da aula?")) return;
+    btnElement.style.opacity = '0.3';
+    btnElement.style.pointerEvents = 'none';
     const classId = document.getElementById('currentClassId').value;
     await fetch(`/api/classes/${classId}/remove_student`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ student_id: studentId }) });
     await loadAll();
@@ -426,11 +445,20 @@ async function removeStudentFromClass(studentId) {
     if (updatedClass) { renderEnrolledList(updatedClass); renderStudentSelect(updatedClass); }
 }
 
-async function deleteStudent(id) { 
-    if(confirm('Excluir aluno?')) { await fetch(`/api/students/${id}/delete`, {method:'DELETE'}); loadAll(); } 
+async function deleteStudent(id, btnElement) { 
+    if(confirm('Excluir aluno definitivamente?')) { 
+        btnElement.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        await fetch(`/api/students/${id}/delete`, {method:'DELETE'}); 
+        loadAll(); 
+    } 
 }
-async function deleteClass(id) { 
-    if(confirm('Excluir turma?')) { await fetch(`/api/classes/${id}`, {method:'DELETE'}); loadAll(); } 
+
+async function deleteClass(id, btnElement) { 
+    if(confirm('Excluir esta turma?')) { 
+        btnElement.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        await fetch(`/api/classes/${id}`, {method:'DELETE'}); 
+        loadAll(); 
+    } 
 }
 
 function switchTab(tab) {
