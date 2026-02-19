@@ -114,14 +114,22 @@ function renderStudentTable() {
     }
     if (repoFilter) list = list.filter(s => s.reposicoes_count > 0);
 
+    // Ordena: Ativos primeiro, Inativos no final
+    list.sort((a, b) => (a.active === b.active) ? 0 : a.active ? -1 : 1);
+
     list.forEach(s => {
         const lastPayText = s.lastPayment ? formatDate(s.lastPayment) : '<span style="color:#cbd5e1; font-size:0.75rem;">Sem registro</span>';
+        
+        // Estilo diferente se estiver inativo
+        const opacityStyle = s.active ? '1' : '0.5';
+        const activeBadge = s.active ? '' : '<span style="background:#ef4444; color:white; font-size:0.6rem; padding:2px 5px; border-radius:4px; margin-left:5px;">INATIVO</span>';
 
         const tr = document.createElement('tr');
+        tr.style.opacity = opacityStyle;
         tr.innerHTML = `
             <td>
-                <strong style="color:var(--dark)">${s.name}</strong> 
-                ${s.reposicoes_count > 0 ? `<span class="repo-alert" style="margin-left:5px;">${s.reposicoes_count} pendente(s)</span>` : ''}
+                <strong style="color:var(--dark)">${s.name}</strong> ${activeBadge}
+                ${s.reposicoes_count > 0 && s.active ? `<span class="repo-alert" style="margin-left:5px;">${s.reposicoes_count} pendente(s)</span>` : ''}
             </td>
             <td>
                 <div style="font-size:0.85rem; color:#334155; font-weight:500">${s.classes_desc || '<span style="color:#94a3b8">Sem turma fixa</span>'}</div>
@@ -142,7 +150,10 @@ function renderStudentTable() {
                     </button>
                 </div>
             </td>
-            <td style="text-align:right;">
+            <td style="text-align:right; min-width: 100px;">
+                <button onclick="toggleStudentStatus(${s.id}, this)" title="${s.active ? 'Inativar Aluno' : 'Ativar Aluno'}" style="border:none; background:none; color:${s.active ? '#16a34a' : '#94a3b8'}; cursor:pointer; padding:5px; margin-right:5px; font-size:1.1rem;">
+                    <i class="fa-solid fa-toggle-${s.active ? 'on' : 'off'}"></i>
+                </button>
                 <button onclick="editStudent(${s.id})" style="border:none; background:none; color:var(--primary); cursor:pointer; padding:5px; margin-right:5px;"><i class="fa-solid fa-pen"></i></button>
                 <button onclick="deleteStudent(${s.id}, this)" style="border:none; background:none; color:#cbd5e1; cursor:pointer; padding:5px;"><i class="fa-solid fa-trash"></i></button>
             </td>
@@ -160,6 +171,18 @@ function openActionModal(id) {
 
 function renderActionModalContent(s) {
     const body = document.getElementById('actionModalBody');
+    
+    // Constrói o HTML do Histórico (Lista as ações)
+    let historyHtml = '<div style="text-align:center; padding: 10px; color:#94a3b8; font-size:0.8rem;">Nenhum histórico ainda.</div>';
+    if (s.history && s.history.length > 0) {
+        historyHtml = s.history.map(h => `
+            <div style="border-bottom: 1px solid #f1f5f9; padding: 8px 0; display:flex; flex-direction:column; gap:3px;">
+                <span style="font-size:0.7rem; color:#94a3b8; font-weight:bold;"><i class="fa-regular fa-clock"></i> ${h.date}</span>
+                <span style="font-size:0.85rem; color:#334155;">${h.desc}</span>
+            </div>
+        `).join('');
+    }
+
     body.innerHTML = `
         <div style="text-align: center; margin-bottom: 20px;">
             <h4 style="color: var(--dark); font-size: 1.2rem; margin-bottom: 2px;">${s.name}</h4>
@@ -177,15 +200,15 @@ function renderActionModalContent(s) {
             </div>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-            <button onclick="studentAction(this, ${s.id}, 'presenca')" style="width: 100%; background: #fff; border: 1px solid #e2e8f0; padding: 12px 15px; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s;">
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
+            <button onclick="studentAction(this, ${s.id}, 'presenca')" style="width: 100%; background: #fff; border: 1px solid #e2e8f0; padding: 12px 15px; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s;" ${!s.active ? 'disabled style="opacity:0.5"' : ''}>
                 <div style="display: flex; align-items: center; gap: 10px; color: #16a34a; font-weight: bold; font-size: 0.95rem;">
                     <i class="fa-solid fa-circle-check" style="font-size: 1.2rem;"></i> Presença Normal
                 </div>
                 <span style="background: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold;">-1 Aula</span>
             </button>
             
-            <button onclick="studentAction(this, ${s.id}, 'falta_com_reposicao')" style="width: 100%; background: #fff; border: 1px solid #e2e8f0; padding: 12px 15px; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s;">
+            <button onclick="studentAction(this, ${s.id}, 'falta_com_reposicao')" style="width: 100%; background: #fff; border: 1px solid #e2e8f0; padding: 12px 15px; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s;" ${!s.active ? 'disabled style="opacity:0.5"' : ''}>
                 <div style="display: flex; align-items: center; gap: 10px; color: #d97706; font-weight: bold; font-size: 0.95rem;">
                     <i class="fa-solid fa-user-clock" style="font-size: 1.2rem;"></i> Falta com Aviso
                 </div>
@@ -197,26 +220,45 @@ function renderActionModalContent(s) {
 
             ${s.reposicoes_count > 0 ? `
                 <div style="height: 1px; background: #e2e8f0; margin: 5px 0;"></div>
-                <button onclick="studentAction(this, ${s.id}, 'usar_reposicao')" style="width: 100%; background: #e0f2fe; border: 1px solid #bae6fd; padding: 12px 15px; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s;">
+                <button onclick="studentAction(this, ${s.id}, 'usar_reposicao')" style="width: 100%; background: #e0f2fe; border: 1px solid #bae6fd; padding: 12px 15px; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s;" ${!s.active ? 'disabled style="opacity:0.5"' : ''}>
                     <div style="display: flex; align-items: center; gap: 10px; color: #0369a1; font-weight: bold; font-size: 0.95rem;">
                         <i class="fa-solid fa-hand-sparkles" style="font-size: 1.2rem;"></i> Usar Reposição
                     </div>
                     <span style="background: #bae6fd; color: #0369a1; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold;">-1 Reposição</span>
                 </button>
-                <button onclick="studentAction(this, ${s.id}, 'anular_reposicao')" style="width: 100%; background: #f1f5f9; border: 1px solid #cbd5e1; padding: 10px 15px; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s;">
+                <button onclick="studentAction(this, ${s.id}, 'anular_reposicao')" style="width: 100%; background: #f1f5f9; border: 1px solid #cbd5e1; padding: 10px 15px; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s;" ${!s.active ? 'disabled style="opacity:0.5"' : ''}>
                     <div style="display: flex; align-items: center; gap: 10px; color: #64748b; font-weight: bold; font-size: 0.9rem;">
                         <i class="fa-solid fa-ban" style="font-size: 1.1rem;"></i> Anular Reposição (Falta)
                     </div>
                 </button>
             ` : ''}
         </div>
+
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px;">
+            <h5 style="color: #475569; margin-bottom: 8px; font-size: 0.85rem;"><i class="fa-solid fa-clock-rotate-left"></i> Histórico do Aluno</h5>
+            <div style="max-height: 150px; overflow-y: auto; padding-right: 5px;">
+                ${historyHtml}
+            </div>
+        </div>
     `;
 }
 
-// TRAVA 1: Modal de Ações
+// TOGGLE STATUS
+async function toggleStudentStatus(id, btnElement) {
+    btnElement.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    btnElement.disabled = true;
+    try {
+        await fetch(`/api/students/${id}/toggle_status`, { method: 'POST' });
+        await fetchStudents();
+    } catch (e) {
+        alert("Erro ao alterar status!");
+        btnElement.disabled = false;
+    }
+}
+
 let isProcessingAction = false;
 async function studentAction(btnElement, id, actionStr) {
-    if (isProcessingAction) return; // Ignora se já estiver salvando
+    if (isProcessingAction) return; 
     isProcessingAction = true;
     
     const originalContent = btnElement.innerHTML;
@@ -332,11 +374,10 @@ function renderStudentSelect(cls) {
     });
 }
 
-// TRAVA 2: Salvar Aluno
 document.getElementById('studentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const submitBtn = e.target.querySelector('button[type="submit"]');
-    if (submitBtn.disabled) return; // Impede duplo envio
+    if (submitBtn.disabled) return; 
     
     const originalBtnText = submitBtn.innerHTML;
     submitBtn.disabled = true;
@@ -380,7 +421,6 @@ document.getElementById('studentForm').addEventListener('submit', async (e) => {
     }
 });
 
-// TRAVA 3: Salvar Turma (A CULPADA PELA DUPLICIDADE FOI CORRIGIDA)
 document.getElementById('classForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const submitBtn = e.target.querySelector('button[type="submit"]');
@@ -409,7 +449,6 @@ document.getElementById('classForm').addEventListener('submit', async (e) => {
     }
 });
 
-// TRAVA 4: Adicionar aluno na turma
 let isAddingStudent = false;
 async function addStudentToCurrentClass() {
     if (isAddingStudent) return;
@@ -433,7 +472,6 @@ async function addStudentToCurrentClass() {
     }
 }
 
-// TRAVA 5: Exclusões
 async function removeStudentFromClass(studentId, btnElement) {
     if(!confirm("Remover da aula?")) return;
     btnElement.style.opacity = '0.3';
