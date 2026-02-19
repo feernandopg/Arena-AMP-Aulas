@@ -13,30 +13,41 @@ function setTodayDate() {
     const dateInput = document.getElementById('startDate');
     if(dateInput) {
         dateInput.value = today;
-        autoCalculateDates(); // Já calcula o vencimento automático
+        autoCalculateStudentData();
     }
 }
 
-// Calcula o vencimento 1 mês pra frente, mas deixa o usuário editar
-function autoCalculateDates() {
+// CÁLCULO MÁGICO NA TELA
+function autoCalculateStudentData() {
+    // 1. Calcula Vencimento
     const startInput = document.getElementById('startDate').value;
-    if (!startInput) return;
+    if (startInput) {
+        const start = new Date(startInput);
+        const nextObj = new Date(start);
+        nextObj.setMonth(nextObj.getMonth() + 1);
+        document.getElementById('nextPayment').value = nextObj.toISOString().split('T')[0];
+    }
     
-    const start = new Date(startInput);
-    const nextObj = new Date(start);
-    nextObj.setMonth(nextObj.getMonth() + 1);
+    // 2. Calcula Saldo de Aulas e Preço
+    const plan = document.getElementById('plan').value;
+    const aulasSemana = parseInt(document.getElementById('classesPerWeek').value) || 2;
+    let semanas = 4;
     
-    document.getElementById('nextPayment').value = nextObj.toISOString().split('T')[0];
+    const i = document.getElementById('price');
+    if(plan === 'Mensal') { semanas = 4; i.value = 300; }
+    if(plan === 'Trimestral') { semanas = 12; i.value = 280; }
+    if(plan === 'Semestral') { semanas = 24; i.value = 250; }
+    
+    // Preenche o Saldo automaticamente
+    document.getElementById('saldoAulas').value = aulasSemana * semanas;
 }
 
-// Trava o limite de aulas por semana
 function enforceClassLimit(checkbox) {
     const max = parseInt(document.getElementById('classesPerWeek').value) || 2;
     const checkedCount = document.querySelectorAll('input[name="selectedClasses"]:checked').length;
-    
     if (checkedCount > max) {
-        alert(`O plano deste aluno permite apenas ${max} aula(s) por semana!`);
-        checkbox.checked = false; // Desmarca automaticamente
+        alert(`O plano permite apenas ${max} aula(s) por semana!`);
+        checkbox.checked = false; 
     }
 }
 
@@ -50,7 +61,7 @@ async function fetchClasses() {
         const res = await fetch('/api/classes');
         classesData = await res.json();
         renderClassGrid();
-    } catch (error) { console.error("Erro turmas:", error); }
+    } catch (error) { console.error(error); }
 }
 
 async function fetchStudents() {
@@ -59,7 +70,7 @@ async function fetchStudents() {
         studentsData = await res.json();
         renderStudentTable();
         updateStats();
-    } catch (error) { console.error("Erro alunos:", error); }
+    } catch (error) { console.error(error); }
 }
 
 function renderClassGrid() {
@@ -102,22 +113,19 @@ function renderStudentTable() {
     tbody.innerHTML = '';
     let list = studentsData;
     
-    const searchInput = document.getElementById('search');
-    if (searchInput && searchInput.value) {
-        const term = searchInput.value.toLowerCase();
-        list = list.filter(s => s.name.toLowerCase().includes(term));
+    if (document.getElementById('search')?.value) {
+        list = list.filter(s => s.name.toLowerCase().includes(document.getElementById('search').value.toLowerCase()));
     }
-    
     if (repoFilter) list = list.filter(s => s.reposicoes_count > 0);
 
     list.forEach(s => {
-        let repoHtml = repoFilter && s.reposicoes_count > 0 ? `<span class="repo-alert">Pendente</span>` : '';
         const lastPayText = s.lastPayment ? formatDate(s.lastPayment) : '<span style="color:#cbd5e1; font-size:0.75rem;">Sem registro</span>';
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>
-                <strong style="color:var(--dark)">${s.name}</strong> ${repoHtml}
+                <strong style="color:var(--dark)">${s.name}</strong> 
+                ${s.reposicoes_count > 0 ? `<span class="repo-alert" style="margin-left:5px;">${s.reposicoes_count} pendente(s)</span>` : ''}
             </td>
             <td>
                 <div style="font-size:0.85rem; color:#334155; font-weight:500">${s.classes_desc || '<span style="color:#94a3b8">Sem turma fixa</span>'}</div>
@@ -127,25 +135,27 @@ function renderStudentTable() {
                 <div style="font-weight:bold; color:var(--dark)">Vence: ${formatDate(s.nextPayment)}</div>
                 <div style="font-size:0.75rem; color:#64748b; margin-top:3px;">Último: ${lastPayText}</div>
             </td>
-            <td>
-                <div style="display:flex; gap: 15px;">
-                    <div style="text-align: center;">
-                        <div style="font-size:0.7rem; color:#64748b; margin-bottom:2px">Créditos</div>
-                        <div class="repo-box" style="background: #f0fdf4; border-color: #bbf7d0;">
-                            <button class="btn-mini" onclick="changeCredits(${s.id}, -1)" style="color:#16a34a">-</button>
-                            <strong style="color:#16a34a">${s.credits || 0}</strong>
-                            <button class="btn-mini" onclick="changeCredits(${s.id}, 1)" style="color:#16a34a">+</button>
-                        </div>
-                    </div>
+            <td style="min-width: 250px;">
+                <div style="display:flex; flex-direction:column; gap:8px; background:#f8fafc; padding:8px; border-radius:6px; border:1px solid #e2e8f0;">
                     
-                    <div style="text-align: center;">
-                        <div style="font-size:0.7rem; color:#64748b; margin-bottom:2px">Reposições</div>
-                        <div class="repo-box">
-                            <button class="btn-mini" onclick="changeRepo(${s.id}, -1)">-</button>
-                            <strong style="color:${s.reposicoes_count > 0 ? 'var(--danger)' : 'var(--dark)'}">${s.reposicoes_count}</strong>
-                            <button class="btn-mini" onclick="changeRepo(${s.id}, 1)">+</button>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:0.8rem; font-weight:bold; color:#475569;">Saldo Aulas: <span style="font-size:1rem; color:var(--dark)">${s.credits || 0}</span></span>
+                        <div style="display:flex; gap:4px;">
+                            <button class="btn-mini" style="background:#dcfce7; color:#16a34a; border:1px solid #bbf7d0;" onclick="studentAction(${s.id}, 'presenca')" title="Registrar Presença (-1 Aula)"><i class="fa-solid fa-check"></i> Presença</button>
+                            <button class="btn-mini" style="background:#fef08a; color:#854d0e; border:1px solid #fde047;" onclick="studentAction(${s.id}, 'falta_com_reposicao')" title="Falta com Aviso (-1 Aula, +1 Reposição)"><i class="fa-solid fa-rotate-left"></i> Falta</button>
                         </div>
                     </div>
+
+                    ${s.reposicoes_count > 0 ? `
+                    <div style="border-top:1px solid #e2e8f0; padding-top:6px; display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:0.8rem; font-weight:bold; color:#ef4444;">Reposições: <span style="font-size:1rem;">${s.reposicoes_count}</span></span>
+                        <div style="display:flex; gap:4px;">
+                            <button class="btn-mini" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;" onclick="studentAction(${s.id}, 'usar_reposicao')" title="Aluno fez a reposição hoje"><i class="fa-solid fa-clipboard-check"></i> Usar</button>
+                            <button class="btn-mini" style="background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1;" onclick="studentAction(${s.id}, 'anular_reposicao')" title="Anular (Aluno perdeu a chance)"><i class="fa-solid fa-xmark"></i> Anular</button>
+                        </div>
+                    </div>
+                    ` : ''}
+
                 </div>
             </td>
             <td style="text-align:right;">
@@ -155,6 +165,16 @@ function renderStudentTable() {
         `;
         tbody.appendChild(tr);
     });
+}
+
+// FUNÇÃO PARA ACIONAR OS BOTÕES NOVOS
+async function studentAction(id, actionStr) {
+    await fetch(`/api/students/${id}/action`, { 
+        method:'POST', 
+        headers:{'Content-Type':'application/json'}, 
+        body:JSON.stringify({action: actionStr}) 
+    });
+    fetchStudents();
 }
 
 function editStudent(id) {
@@ -168,11 +188,12 @@ function editStudent(id) {
     document.getElementById('plan').value = student.plan;
     document.getElementById('startDate').value = student.startDate;
     document.getElementById('price').value = student.price;
-    
-    // PREENCHE OS CAMPOS NOVOS
     document.getElementById('classesPerWeek').value = student.classesPerWeek || 2;
     document.getElementById('lastPayment').value = student.lastPayment || '';
     document.getElementById('nextPayment').value = student.nextPayment || '';
+    
+    // Puxa o saldo real salvo no banco
+    document.getElementById('saldoAulas').value = student.credits || 0;
     
     document.querySelector('#modalStudent h3').innerText = "Editar Aluno";
 
@@ -260,23 +281,22 @@ document.getElementById('studentForm').addEventListener('submit', async (e) => {
         const startInput = document.getElementById('startDate').value;
         const plan = document.getElementById('plan').value;
         
-        // Mantém a regra do Fim de Contrato (invisível pro usuário, só pra controle)
         const start = new Date(startInput);
         const months = plan === 'Mensal' ? 1 : plan === 'Trimestral' ? 3 : 6;
         const endObj = new Date(start);
         endObj.setMonth(endObj.getMonth() + months);
         const endDate = endObj.toISOString().split('T')[0];
 
-        // DADOS ENVIADOS PARA O APP.PY (Com os campos novos)
         const data = {
             name: document.getElementById('name').value,
             plan: plan,
             price: document.getElementById('price').value,
             startDate: startInput,
             endDate: endDate,
-            nextPayment: document.getElementById('nextPayment').value,     // MANUAL
-            lastPayment: document.getElementById('lastPayment').value,     // NOVO
-            classesPerWeek: document.getElementById('classesPerWeek').value, // NOVO
+            nextPayment: document.getElementById('nextPayment').value,     
+            lastPayment: document.getElementById('lastPayment').value,     
+            classesPerWeek: document.getElementById('classesPerWeek').value, 
+            saldoAulas: document.getElementById('saldoAulas').value, // NOVO: Manda o Saldo editado
             classIds: classIds 
         };
 
@@ -290,7 +310,6 @@ document.getElementById('studentForm').addEventListener('submit', async (e) => {
         loadAll(); 
         e.target.reset();
         setTodayDate();
-        alert(isEdit ? "Aluno atualizado!" : "Aluno cadastrado!"); 
 
     } catch (error) { alert("Erro: " + error.message); }
 });
@@ -328,20 +347,6 @@ async function removeStudentFromClass(studentId) {
     if (updatedClass) { renderEnrolledList(updatedClass); renderStudentSelect(updatedClass); }
 }
 
-async function changeRepo(id, change) {
-    await fetch(`/api/students/${id}/reposicao`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({change}) });
-    fetchStudents();
-}
-
-async function changeCredits(id, change) {
-    await fetch(`/api/students/${id}/credits`, { 
-        method:'POST', 
-        headers:{'Content-Type':'application/json'}, 
-        body:JSON.stringify({change}) 
-    });
-    fetchStudents(); // Atualiza a tabela na hora
-}
-
 async function deleteStudent(id) { 
     if(confirm('Excluir aluno?')) { await fetch(`/api/students/${id}/delete`, {method:'DELETE'}); loadAll(); } 
 }
@@ -373,14 +378,6 @@ function updateStats() {
     const totalRepos = studentsData.reduce((acc,s) => acc + (s.reposicoes_count || 0), 0);
     const el = document.getElementById('totalReposicoes');
     if(el) el.innerText = totalRepos;
-}
-
-function updatePrice() {
-    const p = document.getElementById('plan').value;
-    const i = document.getElementById('price');
-    if(p==='Mensal') i.value=300; 
-    if(p==='Trimestral') i.value=280; 
-    if(p==='Semestral') i.value=250;
 }
 
 function formatDate(d) { 

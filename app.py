@@ -225,12 +225,17 @@ def manage_students():
         return jsonify([s.to_dict() for s in students])
     
     d = request.json
+    
+    # Pega o saldo de aulas direto da interface visual
+    saldo_aulas = int(d.get('saldoAulas', 0))
+
     new_s = Student(
         name=d['name'], plan=d['plan'], price=float(d['price']),
         start_date=d['startDate'], end_date=d['endDate'], 
         next_payment=d['nextPayment'],
-        last_payment=d.get('lastPayment', ''),         # NOVO
-        classes_per_week=int(d.get('classesPerWeek', 2)) # NOVO
+        last_payment=d.get('lastPayment', ''),         
+        classes_per_week=int(d.get('classesPerWeek', 2)),
+        credits=saldo_aulas # Salva o valor exato que o usuário viu na tela
     )
     
     # Vincular turmas
@@ -262,8 +267,11 @@ def update_student_data(id):
     s.start_date = d['startDate']
     s.end_date = d['endDate']
     s.next_payment = d['nextPayment']
-    s.last_payment = d.get('lastPayment', '')         
+    s.last_payment = d.get('lastPayment', '')        
     s.classes_per_week = int(d.get('classesPerWeek', 2)) 
+    
+    # Atualiza os Créditos baseados na tela
+    s.credits = int(d.get('saldoAulas', s.credits))
 
     # Atualiza as Turmas (Limpa as antigas e adiciona as novas)
     s.classes = [] 
@@ -301,6 +309,35 @@ def delete_student(id):
         db.session.delete(s)
         db.session.commit()
     return jsonify({'msg':'ok'})
+
+# --- ROTA DE AÇÕES (PRESENÇA E REPOSIÇÃO) ---
+@app.route('/api/students/<int:id>/action', methods=['POST'])
+@login_required
+def student_action(id):
+    s = db.session.get(Student, id)
+    if not s: return jsonify({'error': 'Not found'}), 404
+    
+    action = request.json.get('action')
+    
+    if action == 'presenca':
+        # Abate 1 aula normal
+        if s.credits > 0: s.credits -= 1
+            
+    elif action == 'falta_com_reposicao':
+        # Abate 1 aula normal e GERA 1 reposição (validade 30 dias)
+        if s.credits > 0: s.credits -= 1
+        from datetime import datetime, timedelta
+        exp = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d')
+        hoje = datetime.now().strftime('%Y-%m-%d')
+        db.session.add(Replacement(student_id=s.id, created_at=hoje, expires_at=exp))
+        
+    elif action == 'usar_reposicao' or action == 'anular_reposicao':
+        # Remove a reposição mais antiga
+        if s.replacements:
+            db.session.delete(s.replacements[0])
+            
+    db.session.commit()
+    return jsonify({'success': True, 'credits': s.credits})
 
 if __name__ == '__main__':
     with app.app_context(): db.create_all()

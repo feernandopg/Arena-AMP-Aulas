@@ -79,12 +79,12 @@
                             <th>Aluno</th>
                             <th>Turmas / Plano</th>
                             <th class="hide-mobile">Próx. Pagamento</th>
-                            <th>Reposição</th>
+                            <th>Aulas e Reposições</th>
                             <th></th>
                         </tr>
                     </thead>
                     <tbody id="studentTableBody">
-                        </tbody>
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -104,7 +104,7 @@
              </div>
             
             <div class="class-grid" id="classGrid">
-                </div>
+            </div>
         </div>
 
         <div class="app-footer">
@@ -120,62 +120,67 @@
             <h3>Novo Aluno</h3>
             <span class="close" onclick="closeModals()">&times;</span>
         </div>
+        
         <form id="studentForm">
-    <input type="hidden" id="studentId">
-    
-    <div class="form-group">
-        <label>Nome Completo</label>
-        <input type="text" id="name" required placeholder="Ex: João Silva">
-    </div>
-    
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
-        <div>
-            <label>Plano</label>
-            <select id="plan" required onchange="updatePrice()">
-                <option value="Mensal">Mensal</option>
-                <option value="Trimestral">Trimestral</option>
-                <option value="Semestral">Semestral</option>
-            </select>
-        </div>
-        <div>
-            <label>Aulas por Semana</label>
-            <input type="number" id="classesPerWeek" min="1" max="7" value="2" required title="Limite de aulas semanais">
-        </div>
-    </div>
-    
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
-        <div>
-            <label>Data de Início</label>
-            <input type="date" id="startDate" required onchange="autoCalculateDates()">
-        </div>
-        <div>
-            <label>Vencimento (Próx. Pagto)</label>
-            <input type="date" id="nextPayment" required title="Data limite para pagar">
-        </div>
-    </div>
-
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
-        <div>
-            <label>Último Pagamento (Opcional)</label>
-            <input type="date" id="lastPayment">
-        </div>
-        <div>
-            <label>Valor (R$)</label>
-            <input type="number" id="price" required value="300">
-        </div>
-    </div>
-
-    <div class="form-group">
-        <label>Selecione as Turmas (Frequência Fixa)</label>
-        <div class="checkbox-group" id="classSelector">
+            <input type="hidden" id="studentId">
+            
+            <div class="form-group">
+                <label>Nome Completo</label>
+                <input type="text" id="name" required placeholder="Ex: João Silva">
             </div>
-    </div>
-    
-    <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
-        <button type="button" class="btn-secondary" onclick="closeModals()">Cancelar</button>
-        <button type="submit" class="btn-primary">Salvar Aluno</button>
-    </div>
-</form>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                <div>
+                    <label>Plano</label>
+                    <select id="plan" required onchange="autoCalculateStudentData()">
+                        <option value="Mensal">Mensal</option>
+                        <option value="Trimestral">Trimestral</option>
+                        <option value="Semestral">Semestral</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Aulas p/ Semana</label>
+                    <input type="number" id="classesPerWeek" min="1" max="7" value="2" required onchange="autoCalculateStudentData()">
+                </div>
+                <div>
+                    <label>Saldo de Aulas</label>
+                    <input type="number" id="saldoAulas" required style="background: #f0fdf4; font-weight: bold; color: #16a34a;">
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                <div>
+                    <label>Data de Início</label>
+                    <input type="date" id="startDate" required onchange="autoCalculateStudentData()">
+                </div>
+                <div>
+                    <label>Vencimento (Próx. Pagto)</label>
+                    <input type="date" id="nextPayment" required>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                <div>
+                    <label>Último Pagamento (Opcional)</label>
+                    <input type="date" id="lastPayment">
+                </div>
+                <div>
+                    <label>Valor (R$)</label>
+                    <input type="number" id="price" required value="300">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Selecione as Turmas (Frequência Fixa)</label>
+                <div class="checkbox-group" id="classSelector">
+                    </div>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button type="button" class="btn-secondary" onclick="closeModals()">Cancelar</button>
+                <button type="submit" class="btn-primary">Salvar Aluno</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -226,7 +231,7 @@
             <label style="margin-bottom: 8px; display:block; font-weight:600; font-size:0.85rem;">Adicionar Aluno nesta aula:</label>
             <div style="display: flex; gap: 10px;">
                 <select id="studentToAdd" style="flex: 1;">
-                    </select>
+                </select>
                 <button onclick="addStudentToCurrentClass()" class="btn-primary" style="width: auto; padding: 0 20px;">
                     <i class="fa-solid fa-plus"></i>
                 </button>
@@ -235,7 +240,7 @@
 
         <h4 style="margin-bottom: 10px; color: var(--dark); font-size: 0.9rem;">Alunos Inscritos:</h4>
         <div id="enrolledList" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
-            </div>
+        </div>
         
         <input type="hidden" id="currentClassId">
     </div>
