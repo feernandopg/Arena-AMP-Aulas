@@ -121,35 +121,61 @@
             <span class="close" onclick="closeModals()">&times;</span>
         </div>
         <form id="studentForm">
-            <input type="hidden" id="studentId">
-            
-            <label>Nome Completo</label>
-            <input type="text" id="name" required placeholder="Ex: Ana Souza">
-            
-            <div class="row">
-                <div>
-                    <label>Plano</label>
-                    <select id="plan" onchange="updatePrice()">
-                        <option value="Mensal">Mensal</option>
-                        <option value="Trimestral">Trimestral</option>
-                        <option value="Semestral">Semestral</option>
-                    </select>
-                </div>
-                <div>
-                    <label>Início</label>
-                    <input type="date" id="startDate" required>
-                </div>
-            </div>
-            
-            <label>Valor Mensalidade (R$)</label>
-            <input type="number" id="price" required step="0.01">
-            
-            <label style="margin-top:15px; color:#64748b;">Selecionar Turmas:</label>
-            <div id="classSelector" class="class-selector-box">
-                </div>
+    <input type="hidden" id="studentId">
+    
+    <div class="form-group">
+        <label>Nome Completo</label>
+        <input type="text" id="name" required placeholder="Ex: João Silva">
+    </div>
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+        <div>
+            <label>Plano</label>
+            <select id="plan" required onchange="updatePrice()">
+                <option value="Mensal">Mensal</option>
+                <option value="Trimestral">Trimestral</option>
+                <option value="Semestral">Semestral</option>
+            </select>
+        </div>
+        <div>
+            <label>Aulas por Semana</label>
+            <input type="number" id="classesPerWeek" min="1" max="7" value="2" required title="Limite de aulas semanais">
+        </div>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+        <div>
+            <label>Data de Início</label>
+            <input type="date" id="startDate" required onchange="autoCalculateDates()">
+        </div>
+        <div>
+            <label>Vencimento (Próx. Pagto)</label>
+            <input type="date" id="nextPayment" required title="Data limite para pagar">
+        </div>
+    </div>
 
-            <button type="submit" class="btn-save">Salvar Aluno</button>
-        </form>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+        <div>
+            <label>Último Pagamento (Opcional)</label>
+            <input type="date" id="lastPayment">
+        </div>
+        <div>
+            <label>Valor (R$)</label>
+            <input type="number" id="price" required value="300">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>Selecione as Turmas (Frequência Fixa)</label>
+        <div class="checkbox-group" id="classSelector">
+            </div>
+    </div>
+    
+    <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button type="button" class="btn-secondary" onclick="closeModals()">Cancelar</button>
+        <button type="submit" class="btn-primary">Salvar Aluno</button>
+    </div>
+</form>
     </div>
 </div>
 
