@@ -68,11 +68,10 @@ class Student(db.Model):
     start_date = db.Column(db.String(10), nullable=False)
     end_date = db.Column(db.String(10), nullable=False)
     next_payment = db.Column(db.String(10), nullable=False)
+    last_payment = db.Column(db.String(10), nullable=True) 
+    classes_per_week = db.Column(db.Integer, default=2) 
     
-    # --- NOVOS CAMPOS AQUI ---
-    last_payment = db.Column(db.String(10), nullable=True) # Pode ser vazio se nunca pagou
-    classes_per_week = db.Column(db.Integer, default=2) # Quantidade de aulas permitidas
-    # -------------------------
+    credits = db.Column(db.Integer, default=0) # NOVO: Saldo de aulas (Créditos)
     
     price = db.Column(db.Float, nullable=False)
     
@@ -82,13 +81,12 @@ class Student(db.Model):
 
     def to_dict(self):
         classes_str = ", ".join([f"{c.day[:3]} {c.time}" for c in self.classes])
-        
         return {
             'id': self.id, 'name': self.name, 'plan': self.plan,
             'startDate': self.start_date, 'endDate': self.end_date,
-            'nextPayment': self.next_payment, 
-            'lastPayment': self.last_payment,           # NOVO
-            'classesPerWeek': self.classes_per_week,    # NOVO
+            'nextPayment': self.next_payment, 'lastPayment': self.last_payment,
+            'classesPerWeek': self.classes_per_week,
+            'credits': self.credits, # NOVO
             'price': self.price,
             'classes_desc': classes_str,
             'class_ids': [c.id for c in self.classes],

@@ -108,17 +108,10 @@ function renderStudentTable() {
         list = list.filter(s => s.name.toLowerCase().includes(term));
     }
     
-    if (repoFilter) {
-        list = list.filter(s => s.reposicoes_count > 0);
-    }
+    if (repoFilter) list = list.filter(s => s.reposicoes_count > 0);
 
     list.forEach(s => {
-        let repoHtml = '';
-        if (repoFilter && s.reposicoes_count > 0) {
-             repoHtml = `<span class="repo-alert">Pendente</span>`;
-        }
-        
-        // Exibe o Último pagamento, ou "Sem registro" se estiver vazio
+        let repoHtml = repoFilter && s.reposicoes_count > 0 ? `<span class="repo-alert">Pendente</span>` : '';
         const lastPayText = s.lastPayment ? formatDate(s.lastPayment) : '<span style="color:#cbd5e1; font-size:0.75rem;">Sem registro</span>';
 
         const tr = document.createElement('tr');
@@ -128,17 +121,31 @@ function renderStudentTable() {
             </td>
             <td>
                 <div style="font-size:0.85rem; color:#334155; font-weight:500">${s.classes_desc || '<span style="color:#94a3b8">Sem turma fixa</span>'}</div>
-                <div style="font-size:0.75rem; color:#64748b;">${s.plan} (${s.classesPerWeek || 2}x na semana)</div>
+                <div style="font-size:0.75rem; color:#64748b;">${s.plan} (${s.classesPerWeek || 2}x na sem)</div>
             </td>
             <td class="hide-mobile">
                 <div style="font-weight:bold; color:var(--dark)">Vence: ${formatDate(s.nextPayment)}</div>
                 <div style="font-size:0.75rem; color:#64748b; margin-top:3px;">Último: ${lastPayText}</div>
             </td>
             <td>
-                <div class="repo-box">
-                    <button class="btn-mini" onclick="changeRepo(${s.id}, -1)">-</button>
-                    <strong style="color:${s.reposicoes_count > 0 ? 'var(--danger)' : 'var(--dark)'}">${s.reposicoes_count}</strong>
-                    <button class="btn-mini" onclick="changeRepo(${s.id}, 1)">+</button>
+                <div style="display:flex; gap: 15px;">
+                    <div style="text-align: center;">
+                        <div style="font-size:0.7rem; color:#64748b; margin-bottom:2px">Créditos</div>
+                        <div class="repo-box" style="background: #f0fdf4; border-color: #bbf7d0;">
+                            <button class="btn-mini" onclick="changeCredits(${s.id}, -1)" style="color:#16a34a">-</button>
+                            <strong style="color:#16a34a">${s.credits || 0}</strong>
+                            <button class="btn-mini" onclick="changeCredits(${s.id}, 1)" style="color:#16a34a">+</button>
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <div style="font-size:0.7rem; color:#64748b; margin-bottom:2px">Reposições</div>
+                        <div class="repo-box">
+                            <button class="btn-mini" onclick="changeRepo(${s.id}, -1)">-</button>
+                            <strong style="color:${s.reposicoes_count > 0 ? 'var(--danger)' : 'var(--dark)'}">${s.reposicoes_count}</strong>
+                            <button class="btn-mini" onclick="changeRepo(${s.id}, 1)">+</button>
+                        </div>
+                    </div>
                 </div>
             </td>
             <td style="text-align:right;">
@@ -324,6 +331,15 @@ async function removeStudentFromClass(studentId) {
 async function changeRepo(id, change) {
     await fetch(`/api/students/${id}/reposicao`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({change}) });
     fetchStudents();
+}
+
+async function changeCredits(id, change) {
+    await fetch(`/api/students/${id}/credits`, { 
+        method:'POST', 
+        headers:{'Content-Type':'application/json'}, 
+        body:JSON.stringify({change}) 
+    });
+    fetchStudents(); // Atualiza a tabela na hora
 }
 
 async function deleteStudent(id) { 
