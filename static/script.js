@@ -17,9 +17,7 @@ function setTodayDate() {
     }
 }
 
-// CÁLCULO MÁGICO NA TELA
 function autoCalculateStudentData() {
-    // 1. Calcula Vencimento
     const startInput = document.getElementById('startDate').value;
     if (startInput) {
         const start = new Date(startInput);
@@ -28,7 +26,6 @@ function autoCalculateStudentData() {
         document.getElementById('nextPayment').value = nextObj.toISOString().split('T')[0];
     }
     
-    // 2. Calcula Saldo de Aulas e Preço
     const plan = document.getElementById('plan').value;
     const aulasSemana = parseInt(document.getElementById('classesPerWeek').value) || 2;
     let semanas = 4;
@@ -38,7 +35,6 @@ function autoCalculateStudentData() {
     if(plan === 'Trimestral') { semanas = 12; i.value = 280; }
     if(plan === 'Semestral') { semanas = 24; i.value = 250; }
     
-    // Preenche o Saldo automaticamente
     document.getElementById('saldoAulas').value = aulasSemana * semanas;
 }
 
@@ -135,27 +131,15 @@ function renderStudentTable() {
                 <div style="font-weight:bold; color:var(--dark)">Vence: ${formatDate(s.nextPayment)}</div>
                 <div style="font-size:0.75rem; color:#64748b; margin-top:3px;">Último: ${lastPayText}</div>
             </td>
-            <td style="min-width: 250px;">
-                <div style="display:flex; flex-direction:column; gap:8px; background:#f8fafc; padding:8px; border-radius:6px; border:1px solid #e2e8f0;">
-                    
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-size:0.8rem; font-weight:bold; color:#475569;">Saldo Aulas: <span style="font-size:1rem; color:var(--dark)">${s.credits || 0}</span></span>
-                        <div style="display:flex; gap:4px;">
-                            <button class="btn-mini" style="background:#dcfce7; color:#16a34a; border:1px solid #bbf7d0;" onclick="studentAction(${s.id}, 'presenca')" title="Registrar Presença (-1 Aula)"><i class="fa-solid fa-check"></i> Presença</button>
-                            <button class="btn-mini" style="background:#fef08a; color:#854d0e; border:1px solid #fde047;" onclick="studentAction(${s.id}, 'falta_com_reposicao')" title="Falta com Aviso (-1 Aula, +1 Reposição)"><i class="fa-solid fa-rotate-left"></i> Falta</button>
-                        </div>
+            <td>
+                <div style="display: flex; align-items: center; justify-content: space-between; background: #f8fafc; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                    <div>
+                        <div style="font-size: 0.8rem; font-weight: bold; color: #475569;">Saldo: <span style="font-size: 1rem; color: #16a34a;">${s.credits || 0}</span></div>
+                        ${s.reposicoes_count > 0 ? `<div style="font-size: 0.75rem; color: #ef4444; font-weight: bold;">+${s.reposicoes_count} Reposições</div>` : ''}
                     </div>
-
-                    ${s.reposicoes_count > 0 ? `
-                    <div style="border-top:1px solid #e2e8f0; padding-top:6px; display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-size:0.8rem; font-weight:bold; color:#ef4444;">Reposições: <span style="font-size:1rem;">${s.reposicoes_count}</span></span>
-                        <div style="display:flex; gap:4px;">
-                            <button class="btn-mini" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;" onclick="studentAction(${s.id}, 'usar_reposicao')" title="Aluno fez a reposição hoje"><i class="fa-solid fa-clipboard-check"></i> Usar</button>
-                            <button class="btn-mini" style="background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1;" onclick="studentAction(${s.id}, 'anular_reposicao')" title="Anular (Aluno perdeu a chance)"><i class="fa-solid fa-xmark"></i> Anular</button>
-                        </div>
-                    </div>
-                    ` : ''}
-
+                    <button class="btn-primary" style="background: var(--dark); padding: 6px 12px; font-size: 0.8rem;" onclick="openActionModal(${s.id})">
+                        <i class="fa-solid fa-list-check"></i> Gerenciar
+                    </button>
                 </div>
             </td>
             <td style="text-align:right;">
@@ -167,14 +151,95 @@ function renderStudentTable() {
     });
 }
 
-// FUNÇÃO PARA ACIONAR OS BOTÕES NOVOS
-async function studentAction(id, actionStr) {
-    await fetch(`/api/students/${id}/action`, { 
-        method:'POST', 
-        headers:{'Content-Type':'application/json'}, 
-        body:JSON.stringify({action: actionStr}) 
-    });
-    fetchStudents();
+// --- NOVO: LÓGICA DO MODAL MODERNO DE AÇÕES ---
+function openActionModal(id) {
+    const s = studentsData.find(st => st.id === id);
+    if (!s) return;
+    renderActionModalContent(s);
+    document.getElementById('modalActions').style.display = 'flex';
+}
+
+function renderActionModalContent(s) {
+    const body = document.getElementById('actionModalBody');
+    body.innerHTML = `
+        <div style="text-align: center; margin-bottom: 20px;">
+            <h4 style="color: var(--dark); font-size: 1.2rem; margin-bottom: 2px;">${s.name}</h4>
+            <span style="display: inline-block; background: #e2e8f0; color: #475569; padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold;">${s.plan} (${s.classesPerWeek}x/sem)</span>
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <div style="flex: 1; text-align: center; background: #f0fdf4; padding: 15px; border-radius: 8px; border: 1px solid #bbf7d0;">
+                <span style="display: block; font-size: 0.8rem; color: #15803d; font-weight: bold; text-transform: uppercase;">Saldo de Aulas</span>
+                <strong style="font-size: 2rem; color: #16a34a;">${s.credits || 0}</strong>
+            </div>
+            <div style="flex: 1; text-align: center; background: ${s.reposicoes_count > 0 ? '#fef2f2' : '#f8fafc'}; padding: 15px; border-radius: 8px; border: 1px solid ${s.reposicoes_count > 0 ? '#fecaca' : '#e2e8f0'};">
+                <span style="display: block; font-size: 0.8rem; color: ${s.reposicoes_count > 0 ? '#b91c1c' : '#64748b'}; font-weight: bold; text-transform: uppercase;">Reposições</span>
+                <strong style="font-size: 2rem; color: ${s.reposicoes_count > 0 ? '#ef4444' : '#94a3b8'};">${s.reposicoes_count}</strong>
+            </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+            <button onclick="studentAction(this, ${s.id}, 'presenca')" style="width: 100%; background: #fff; border: 1px solid #e2e8f0; padding: 12px 15px; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s;">
+                <div style="display: flex; align-items: center; gap: 10px; color: #16a34a; font-weight: bold; font-size: 0.95rem;">
+                    <i class="fa-solid fa-circle-check" style="font-size: 1.2rem;"></i> Presença Normal
+                </div>
+                <span style="background: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold;">-1 Aula</span>
+            </button>
+            
+            <button onclick="studentAction(this, ${s.id}, 'falta_com_reposicao')" style="width: 100%; background: #fff; border: 1px solid #e2e8f0; padding: 12px 15px; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s;">
+                <div style="display: flex; align-items: center; gap: 10px; color: #d97706; font-weight: bold; font-size: 0.95rem;">
+                    <i class="fa-solid fa-user-clock" style="font-size: 1.2rem;"></i> Falta com Aviso
+                </div>
+                <div style="text-align: right;">
+                    <span style="display: block; font-size: 0.75rem; color: #64748b; font-weight: bold;">-1 Aula</span>
+                    <span style="display: block; font-size: 0.75rem; color: #b91c1c; font-weight: bold;">+1 Reposição</span>
+                </div>
+            </button>
+
+            ${s.reposicoes_count > 0 ? `
+                <div style="height: 1px; background: #e2e8f0; margin: 5px 0;"></div>
+                <button onclick="studentAction(this, ${s.id}, 'usar_reposicao')" style="width: 100%; background: #e0f2fe; border: 1px solid #bae6fd; padding: 12px 15px; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s;">
+                    <div style="display: flex; align-items: center; gap: 10px; color: #0369a1; font-weight: bold; font-size: 0.95rem;">
+                        <i class="fa-solid fa-hand-sparkles" style="font-size: 1.2rem;"></i> Usar Reposição
+                    </div>
+                    <span style="background: #bae6fd; color: #0369a1; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold;">-1 Reposição</span>
+                </button>
+                <button onclick="studentAction(this, ${s.id}, 'anular_reposicao')" style="width: 100%; background: #f1f5f9; border: 1px solid #cbd5e1; padding: 10px 15px; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s;">
+                    <div style="display: flex; align-items: center; gap: 10px; color: #64748b; font-weight: bold; font-size: 0.9rem;">
+                        <i class="fa-solid fa-ban" style="font-size: 1.1rem;"></i> Anular Reposição (Falta)
+                    </div>
+                </button>
+            ` : ''}
+        </div>
+    `;
+}
+
+async function studentAction(btnElement, id, actionStr) {
+    // 1. EFEITO VISUAL DE CARREGANDO (Bloqueia múltiplos cliques)
+    const originalContent = btnElement.innerHTML;
+    btnElement.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processando...';
+    btnElement.style.opacity = '0.7';
+    btnElement.style.pointerEvents = 'none';
+
+    try {
+        await fetch(`/api/students/${id}/action`, { 
+            method:'POST', 
+            headers:{'Content-Type':'application/json'}, 
+            body:JSON.stringify({action: actionStr}) 
+        });
+        await fetchStudents(); // Atualiza os dados silenciosamente
+        
+        // Se o modal ainda estiver aberto, atualiza a tela dele na mesma hora
+        const updatedStudent = studentsData.find(st => st.id === id);
+        if (updatedStudent && document.getElementById('modalActions').style.display === 'flex') {
+            renderActionModalContent(updatedStudent);
+        }
+    } catch (e) {
+        alert("Erro na conexão!");
+        btnElement.innerHTML = originalContent; // Restaura se der erro
+        btnElement.style.opacity = '1';
+        btnElement.style.pointerEvents = 'auto';
+    }
 }
 
 function editStudent(id) {
@@ -191,8 +256,6 @@ function editStudent(id) {
     document.getElementById('classesPerWeek').value = student.classesPerWeek || 2;
     document.getElementById('lastPayment').value = student.lastPayment || '';
     document.getElementById('nextPayment').value = student.nextPayment || '';
-    
-    // Puxa o saldo real salvo no banco
     document.getElementById('saldoAulas').value = student.credits || 0;
     
     document.querySelector('#modalStudent h3').innerText = "Editar Aluno";
@@ -271,8 +334,17 @@ function renderStudentSelect(cls) {
     });
 }
 
+// --- PROTEÇÃO CONTRA CADASTRO DUPLO AQUI ---
 document.getElementById('studentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    
+    // Trava o botão de salvar
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';
+    submitBtn.style.opacity = '0.7';
+
     try {
         const id = document.getElementById('studentId').value;
         const isEdit = id ? true : false; 
@@ -296,7 +368,7 @@ document.getElementById('studentForm').addEventListener('submit', async (e) => {
             nextPayment: document.getElementById('nextPayment').value,     
             lastPayment: document.getElementById('lastPayment').value,     
             classesPerWeek: document.getElementById('classesPerWeek').value, 
-            saldoAulas: document.getElementById('saldoAulas').value, // NOVO: Manda o Saldo editado
+            saldoAulas: document.getElementById('saldoAulas').value,
             classIds: classIds 
         };
 
@@ -307,11 +379,18 @@ document.getElementById('studentForm').addEventListener('submit', async (e) => {
         if (!response.ok) throw new Error("Erro no servidor.");
 
         closeModals();
-        loadAll(); 
+        await loadAll(); 
         e.target.reset();
         setTodayDate();
 
-    } catch (error) { alert("Erro: " + error.message); }
+    } catch (error) { 
+        alert("Erro: " + error.message); 
+    } finally {
+        // Destrava o botão aconteça o que acontecer
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+        submitBtn.style.opacity = '1';
+    }
 });
 
 document.getElementById('classForm').addEventListener('submit', async (e) => {
