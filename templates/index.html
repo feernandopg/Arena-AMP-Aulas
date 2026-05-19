@@ -24,12 +24,11 @@
         <div class="sidebar-header">
             <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="sidebar-logo">
             <h2>Arena AMP</h2>
-            
             <button class="close-menu-btn" onclick="toggleMenu()">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
-        
+
         <div class="sidebar-content">
             <div class="user-card">
                 <i class="fa-regular fa-user-circle"></i>
@@ -49,16 +48,40 @@
             </div>
 
             <div class="stats">
-                <div class="stat-item" id="repoFilterCard" onclick="toggleRepoFilter()" style="cursor: pointer; transition:0.2s">
-                    <small>Reposições (Clique para Filtrar)</small>
+                <div class="stat-item" id="repoFilterCard" onclick="toggleRepoFilter()" style="cursor:pointer; transition:0.2s; margin-bottom:10px;">
+                    <small>Reposições (Clique p/ Filtrar)</small>
                     <strong id="totalReposicoes">0</strong>
                 </div>
+                <!-- Alert summary cards -->
+                <div class="stat-item alert-stat" id="alertOverdueCard" onclick="toggleAlertFilter('overdue')" style="cursor:pointer; display:none; background:#fef2f2; border-color:#fecaca;">
+                    <small style="color:#b91c1c;">⚠️ Pagamentos Vencidos</small>
+                    <strong id="countOverdue" style="color:#ef4444;">0</strong>
+                </div>
+                <div class="stat-item alert-stat" id="alertSoonCard" onclick="toggleAlertFilter('soon')" style="cursor:pointer; display:none; background:#fff7ed; border-color:#fed7aa; margin-top:8px;">
+                    <small style="color:#c2410c;">🔔 Vence em 7 dias</small>
+                    <strong id="countSoon" style="color:#f97316;">0</strong>
+                </div>
             </div>
+
+            <!-- Ferramentas de manutenção -->
+            <div class="maintenance-tools">
+                <p style="font-size:0.7rem; text-transform:uppercase; color:var(--gray); letter-spacing:0.5px; margin-bottom:8px; font-weight:600;">Manutenção</p>
+                <a href="/api/backup" class="tool-btn tool-btn-backup" title="Baixa um arquivo .json com todos os seus dados">
+                    <i class="fa-solid fa-download"></i> Fazer Backup
+                </a>
+                <a href="/restore" class="tool-btn tool-btn-restore" title="Restaura dados a partir de um arquivo de backup">
+                    <i class="fa-solid fa-upload"></i> Restaurar Backup
+                </a>
+                <a href="/migrate" class="tool-btn tool-btn-migrate" title="Atualiza o banco sem perder dados — rode após atualizar o código">
+                    <i class="fa-solid fa-database"></i> Migrar Banco
+                </a>
+            </div>
+
         </div>
     </aside>
 
     <main class="content">
-        
+
         <div id="view-students" class="view-section active">
             <header class="desktop-header">
                 <h1>Gerenciar Alunos</h1>
@@ -66,10 +89,10 @@
                     <i class="fa-solid fa-plus"></i> Novo Aluno
                 </button>
             </header>
-            
+
             <div class="mobile-actions">
-                 <input type="text" id="search" placeholder="Buscar aluno..." onkeyup="filterStudents()">
-                 <button class="btn-primary-mobile" onclick="openStudentModal()">+</button>
+                <input type="text" id="search" placeholder="Buscar aluno..." onkeyup="filterStudents()">
+                <button class="btn-primary-mobile" onclick="openStudentModal()">+</button>
             </div>
 
             <div class="table-container">
@@ -78,13 +101,12 @@
                         <tr>
                             <th>Aluno</th>
                             <th>Turmas / Plano</th>
-                            <th class="hide-mobile">Próx. Pagamento</th>
-                            <th>Aulas e Reposições</th>
+                            <th class="hide-mobile">Pagamento</th>
+                            <th>Aulas</th>
                             <th></th>
                         </tr>
                     </thead>
-                    <tbody id="studentTableBody">
-                    </tbody>
+                    <tbody id="studentTableBody"></tbody>
                 </table>
             </div>
         </div>
@@ -96,40 +118,36 @@
                     <i class="fa-solid fa-plus"></i> Nova Turma
                 </button>
             </header>
-            
-            <div class="mobile-actions" style="justify-content: flex-end;">
-                <button class="btn-primary-mobile" onclick="openClassModal()" style="background-color: var(--dark);">
-                     <i class="fa-solid fa-plus"></i>
+            <div class="mobile-actions" style="justify-content:flex-end;">
+                <button class="btn-primary-mobile" onclick="openClassModal()" style="background-color:var(--dark);">
+                    <i class="fa-solid fa-plus"></i>
                 </button>
-             </div>
-            
-            <div class="class-grid" id="classGrid">
             </div>
+            <div class="class-grid" id="classGrid"></div>
         </div>
 
-        <div class="app-footer">
-            ©️ 𝓕𝓮𝓻𝓷𝓪𝓷𝓭𝓸 𝓟𝓻𝓮𝓼𝓽𝓮𝓼 𝓖𝓸𝓭𝓲𝓷𝓱𝓸
-        </div>
-
+        <div class="app-footer">©️ 𝓕𝓮𝓻𝓷𝓪𝓷𝓭𝓸 𝓟𝓻𝓮𝓼𝓽𝓮𝓼 𝓖𝓸𝓭𝓲𝓷𝓱𝓸</div>
     </main>
 </div>
 
+<!-- ═══════════════════ MODAL: NOVO/EDITAR ALUNO ═══════════════════ -->
 <div id="modalStudent" class="modal-overlay">
-    <div class="modal-content">
+    <div class="modal-content" style="max-width:560px;">
         <div class="modal-header">
-            <h3>Novo Aluno</h3>
+            <h3 id="studentModalTitle">Novo Aluno</h3>
             <span class="close" onclick="closeModals()">&times;</span>
         </div>
-        
+
         <form id="studentForm">
             <input type="hidden" id="studentId">
-            
+
             <div class="form-group">
                 <label>Nome Completo</label>
                 <input type="text" id="name" required placeholder="Ex: João Silva">
             </div>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+
+            <!-- Row 1: Plano / Aulas / Saldo -->
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
                 <div>
                     <label>Plano</label>
                     <select id="plan" required onchange="autoCalculateStudentData()">
@@ -139,44 +157,64 @@
                     </select>
                 </div>
                 <div>
-                    <label>Aulas p/ Semana</label>
+                    <label>Aulas / Semana</label>
                     <input type="number" id="classesPerWeek" min="1" max="7" value="2" required onchange="autoCalculateStudentData()">
                 </div>
                 <div>
                     <label>Saldo de Aulas</label>
-                    <input type="number" id="saldoAulas" required style="background: #f0fdf4; font-weight: bold; color: #16a34a;">
+                    <input type="number" id="saldoAulas" required style="background:#f0fdf4; font-weight:bold; color:#16a34a;">
                 </div>
             </div>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+
+            <!-- Row 2: Datas -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                 <div>
                     <label>Data de Início</label>
                     <input type="date" id="startDate" required onchange="autoCalculateStudentData()">
                 </div>
                 <div>
-                    <label>Vencimento (Próx. Pagto)</label>
-                    <input type="date" id="nextPayment" required>
+                    <label>Data de Término</label>
+                    <input type="date" id="endDate" required>
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+            <!-- Row 3: Pagamento -->
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
                 <div>
-                    <label>Último Pagamento (Opcional)</label>
-                    <input type="date" id="lastPayment">
+                    <label>Dia fixo de venc.</label>
+                    <select id="paymentDay" onchange="autoCalculateStudentData()">
+                        <option value="5">Dia 5</option>
+                        <option value="10">Dia 10</option>
+                        <option value="15">Dia 15</option>
+                        <option value="20">Dia 20</option>
+                        <option value="25">Dia 25</option>
+                        <option value="30" selected>Dia 30</option>
+                    </select>
                 </div>
                 <div>
-                    <label>Valor (R$)</label>
-                    <input type="number" id="price" required value="300">
+                    <label>Próx. Vencimento</label>
+                    <input type="date" id="nextPayment" required>
+                </div>
+                <div>
+                    <label>Último Pagamento</label>
+                    <input type="date" id="lastPayment">
+                </div>
+            </div>
+
+            <!-- Row 4: Valor -->
+            <div style="display:grid; grid-template-columns:1fr; gap:10px;">
+                <div>
+                    <label>Valor do Plano (R$)</label>
+                    <input type="text" id="price" required value="300,00" placeholder="Ex: 59,90">
                 </div>
             </div>
 
             <div class="form-group">
-                <label>Selecione as Turmas (Frequência Fixa)</label>
-                <div class="checkbox-group" id="classSelector">
-                    </div>
+                <label>Turmas (Frequência Fixa)</label>
+                <div class="checkbox-group class-selector-box" id="classSelector"></div>
             </div>
-            
-            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
                 <button type="button" class="btn-secondary" onclick="closeModals()">Cancelar</button>
                 <button type="submit" class="btn-primary">Salvar Aluno</button>
             </div>
@@ -184,6 +222,7 @@
     </div>
 </div>
 
+<!-- ═══════════════════ MODAL: NOVA TURMA ═══════════════════ -->
 <div id="modalClass" class="modal-overlay">
     <div class="modal-content">
         <div class="modal-header">
@@ -200,7 +239,6 @@
                 <option value="Sexta">Sexta</option>
                 <option value="Sábado">Sábado</option>
             </select>
-            
             <div class="row">
                 <div>
                     <label>Horário</label>
@@ -211,49 +249,76 @@
                     <input type="number" id="classCapacity" value="6" min="1">
                 </div>
             </div>
-            
             <label>Professor Responsável</label>
             <input type="text" id="classProf" required placeholder="Ex: Prof. Lucas">
-            
-            <button type="submit" class="btn-save" style="background-color: #1e293b;">Criar Turma</button>
+            <button type="submit" class="btn-save" style="background-color:#1e293b;">Criar Turma</button>
         </form>
     </div>
 </div>
 
+<!-- ═══════════════════ MODAL: DETALHES DA TURMA ═══════════════════ -->
 <div id="modalClassDetails" class="modal-overlay">
     <div class="modal-content">
         <div class="modal-header">
             <h3 id="detailClassTitle">Detalhes da Turma</h3>
             <span class="close" onclick="closeModals()">&times;</span>
         </div>
-        
-        <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e2e8f0;">
-            <label style="margin-bottom: 8px; display:block; font-weight:600; font-size:0.85rem;">Adicionar Aluno nesta aula:</label>
-            <div style="display: flex; gap: 10px;">
-                <select id="studentToAdd" style="flex: 1;">
-                </select>
-                <button onclick="addStudentToCurrentClass()" class="btn-primary" style="width: auto; padding: 0 20px;">
+        <div style="background:#f8fafc; padding:15px; border-radius:8px; margin-bottom:20px; border:1px solid #e2e8f0;">
+            <label style="margin-bottom:8px; display:block; font-weight:600; font-size:0.85rem;">Adicionar Aluno nesta aula:</label>
+            <div style="display:flex; gap:10px;">
+                <select id="studentToAdd" style="flex:1;"></select>
+                <button onclick="addStudentToCurrentClass()" class="btn-primary" style="width:auto; padding:0 20px;">
                     <i class="fa-solid fa-plus"></i>
                 </button>
             </div>
         </div>
-
-        <h4 style="margin-bottom: 10px; color: var(--dark); font-size: 0.9rem;">Alunos Inscritos:</h4>
-        <div id="enrolledList" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
-        </div>
-        
+        <h4 style="margin-bottom:10px; color:var(--dark); font-size:0.9rem;">Alunos Inscritos:</h4>
+        <div id="enrolledList" style="max-height:250px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
         <input type="hidden" id="currentClassId">
     </div>
 </div>
 
+<!-- ═══════════════════ MODAL: GERENCIAR FREQUÊNCIA ═══════════════════ -->
 <div id="modalActions" class="modal-overlay">
-    <div class="modal-content" style="max-width: 450px;">
-        <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
+    <div class="modal-content" style="max-width:480px;">
+        <div class="modal-header" style="border-bottom:none; padding-bottom:0;">
             <h3>Gestão de Frequência</h3>
             <span class="close" onclick="closeModals()">&times;</span>
         </div>
-        <div id="actionModalBody" style="padding-top: 10px;">
+        <div id="actionModalBody" style="padding-top:10px;"></div>
+    </div>
+</div>
+
+<!-- ═══════════════════ MODAL: REGISTRAR PAGAMENTO ═══════════════════ -->
+<div id="modalPayment" class="modal-overlay">
+    <div class="modal-content" style="max-width:380px;">
+        <div class="modal-header">
+            <h3>💰 Registrar Pagamento</h3>
+            <span class="close" onclick="closeModals()">&times;</span>
+        </div>
+        <div id="paymentModalBody">
+            <input type="hidden" id="paymentStudentId">
+            <div class="form-group" style="margin-bottom:15px;">
+                <label>Aluno</label>
+                <input type="text" id="paymentStudentName" disabled style="background:#f8fafc; font-weight:600;">
             </div>
+            <div class="form-group" style="margin-bottom:15px;">
+                <label>Valor Recebido (R$)</label>
+                <input type="text" id="paymentAmount" placeholder="Ex: 59,90">
+            </div>
+            <div class="form-group" style="margin-bottom:20px;">
+                <label>Data do Pagamento</label>
+                <input type="date" id="paymentDate">
+            </div>
+            <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px; margin-bottom:20px; font-size:0.85rem; color:#15803d;">
+                <i class="fa-solid fa-circle-info"></i>
+                O próximo vencimento será calculado automaticamente com base no <strong>dia fixo</strong> do aluno.
+            </div>
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button class="btn-secondary" onclick="closeModals()">Cancelar</button>
+                <button class="btn-primary" onclick="confirmPayment()">Confirmar Pagamento</button>
+            </div>
+        </div>
     </div>
 </div>
 
