@@ -4,3 +4,9 @@ instance/
 .pytest_cache/
 .env
 arena.db
+# build do app instalável (Nuitka)
+.venv-build*/
+run_desktop.build/
+run_desktop.dist/
+Output/
+*.spec

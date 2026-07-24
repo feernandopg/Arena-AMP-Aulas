@@ -4,114 +4,86 @@
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='logo.ico') }}">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Arena AMP Aulas</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <title>Entrar — {{ arena.arena_name }}</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { 
-            background: #f1f5f9; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            height: 100vh; 
-            margin: 0; 
-            font-family: 'Inter', sans-serif; 
-        }
-        
-        .card { 
-            background: white; 
-            padding: 2.5rem; 
-            border-radius: 16px; 
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); 
-            width: 90%; 
-            max-width: 350px; 
-            text-align: center; 
-        }
-
-        /* Estilo da Logo */
-        .logo-img {
-            max-width: 120px; /* Tamanho da logo */
-            height: auto;
-            margin-bottom: 1.5rem;
-            display: block;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        h2 { 
-            color: #1e293b; 
-            margin-bottom: 1.5rem; 
-            font-size: 1.5rem;
-        }
-
-        input { 
-            width: 100%; 
-            padding: 12px; 
-            margin-bottom: 1rem; 
-            border: 1px solid #cbd5e1; 
-            border-radius: 8px; 
-            box-sizing: border-box; 
-            font-size: 1rem;
-            outline: none;
-            transition: 0.2s;
-        }
-
-        input:focus {
-            border-color: #FF914D; /* Laranja da marca */
-        }
-
-        button { 
-            width: 100%; 
-            padding: 12px; 
-            background: #FF914D; 
-            color: white; 
-            border: none; 
-            border-radius: 8px; 
-            font-weight: bold; 
-            cursor: pointer; 
-            font-size: 1rem;
-            transition: 0.2s;
-        }
-
-        button:hover { 
-            background: #e07e3d; 
-            transform: translateY(-1px);
-        }
-
-        .error { 
-            color: #ef4444; 
-            background: #fef2f2;
-            padding: 10px;
-            border-radius: 6px;
-            font-size: 0.85rem; 
-            margin-bottom: 1rem; 
-            border: 1px solid #fee2e2;
-        }
-        
-        .footer {
-            margin-top: 1.5rem;
-            font-size: 0.75rem;
-            color: #94a3b8;
-        }
+        :root{--bg:#FBFAF8;--navy:#132539;--navy2:#1B3350;--ink:#181A1F;--muted:#8E9198;--faint:#B9BCC2;
+              --line:#ECEAE6;--accent:{{ arena.accent }};--danger:#D64545}
+        *{box-sizing:border-box;margin:0;font-family:'Barlow',system-ui,sans-serif}
+        body{background:var(--bg);min-height:100vh;display:grid;place-items:center;padding:24px;color:var(--ink)}
+        .stage{width:100%;max-width:390px}
+        .card{background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;
+              box-shadow:0 24px 60px -28px rgba(19,37,57,.35)}
+        /* topo navy com filete laranja (assinatura QUADRA) */
+        .head{background:var(--navy);padding:26px 28px 22px;position:relative}
+        .head::after{content:'';position:absolute;left:0;right:0;bottom:0;height:3px;
+              background:linear-gradient(90deg,var(--accent) 0 64px,transparent 64px)}
+        .brand{display:flex;align-items:center;gap:14px}
+        .tile{width:52px;height:52px;border-radius:13px;background:var(--accent);display:grid;place-items:center;flex-shrink:0;overflow:hidden}
+        .tile img{width:38px;height:38px;object-fit:contain}
+        .brand .nm{color:#fff;font-size:20px;font-weight:800;letter-spacing:-.3px;line-height:1.15}
+        .brand .sub{color:#8FA3B8;font-size:12.5px;font-weight:500;margin-top:3px}
+        /* corpo */
+        .body{padding:26px 28px 28px}
+        label{display:block;font-size:12.5px;font-weight:600;margin-bottom:6px}
+        .field{margin-bottom:15px}
+        .inp{position:relative}
+        .inp i{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--faint);font-size:13px}
+        .inp input{width:100%;padding:12px 13px 12px 36px;border:1px solid var(--line);border-radius:10px;
+              font-size:14.5px;font-family:'Barlow';color:var(--ink);outline:none;transition:.15s;background:#fff}
+        .inp input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent)}
+        button{width:100%;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:11px;
+              font-family:'Barlow';font-weight:700;font-size:15px;cursor:pointer;transition:.15s;
+              display:flex;align-items:center;justify-content:center;gap:9px;margin-top:4px}
+        button:hover{filter:brightness(.94)}
+        .error{display:flex;align-items:center;gap:9px;color:var(--danger);background:#FBEDED;border:1px solid #F0D6D6;
+              padding:10px 13px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:15px}
+        .foot{margin-top:20px;text-align:center;font-size:11.5px;color:var(--faint);font-weight:500}
+        .modulos{display:flex;justify-content:center;gap:16px;margin-top:22px;color:var(--faint);font-size:12px;font-weight:600}
+        .modulos span{display:inline-flex;align-items:center;gap:6px}
+        .modulos i{font-size:11px;color:var(--muted)}
     </style>
 </head>
 <body>
-    <div class="card">
-        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Arena" class="logo-img">
-        
-        <h2>Arena AMP Aulas</h2>
-        
-        {% if error %}
-            <div class="error">{{ error }}</div>
-        {% endif %}
-        
-        <form method="POST">
-            <input type="text" name="username" placeholder="Usuário" required>
-            <input type="password" name="password" placeholder="Senha" required>
-            <button type="submit">Entrar no Sistema</button>
-        </form>
-
-        <div class="footer">
-           ©️ 𝓕𝓮𝓻𝓷𝓪𝓷𝓭𝓸 𝓟𝓻𝓮𝓼𝓽𝓮𝓼 𝓖𝓸𝓭𝓲𝓷𝓱𝓸 
+    <div class="stage">
+        <div class="card">
+            <div class="head">
+                <div class="brand">
+                    <span class="tile"><img src="{% if arena.logo %}{{ url_for('uploaded_file', filename=arena.logo) }}{% else %}{{ url_for('static', filename='logo.png') }}{% endif %}" alt=""></span>
+                    <div>
+                        <div class="nm">{{ arena.arena_name }}</div>
+                        <div class="sub">Acesso ao ecossistema</div>
+                    </div>
+                </div>
+            </div>
+            <div class="body">
+                {% if error %}
+                    <div class="error"><i class="fa-solid fa-circle-exclamation"></i> {{ error }}</div>
+                {% endif %}
+                <form method="POST">
+                    <div class="field">
+                        <label>Usuário</label>
+                        <div class="inp"><i class="fa-regular fa-user"></i>
+                        <input type="text" name="username" placeholder="Seu usuário" autocomplete="username" required autofocus></div>
+                    </div>
+                    <div class="field">
+                        <label>Senha</label>
+                        <div class="inp"><i class="fa-solid fa-lock"></i>
+                        <input type="password" name="password" placeholder="Sua senha" autocomplete="current-password" required></div>
+                    </div>
+                    <button type="submit">Entrar <i class="fa-solid fa-arrow-right"></i></button>
+                </form>
+                <div class="foot">Um login, todos os módulos.</div>
+            </div>
+        </div>
+        <div class="modulos">
+            <span><i class="fa-solid fa-users"></i> Aulas</span>
+            <span><i class="fa-solid fa-receipt"></i> Comandas</span>
+            <span><i class="fa-solid fa-trophy"></i> Ranking</span>
+            <span><i class="fa-solid fa-chart-line"></i> Relatórios</span>
         </div>
     </div>
 </body>

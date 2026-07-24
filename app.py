@@ -1,17 +1,74 @@
 import os
+import sys
 from datetime import datetime, timedelta
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 
-app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'chave_dev_local_nao_usar_em_prod')
+
+# Modo dev só é aceito rodando via interpretador Python puro. Um .exe compilado
+# (Nuitka/PyInstaller, o que é distribuído aos clientes) tem sys.frozen=True —
+# então NENHUM valor de AMP_DEV no ambiente consegue reativar o modo dev nele,
+# mesmo que o repositório seja público. Sem essa trava, "set AMP_DEV=1" antes
+# de abrir o .exe instalado liberava todos os módulos sem licença nenhuma.
+DEV_MODE = bool(os.environ.get('AMP_DEV')) and not getattr(sys, 'frozen', False)
+
+
+def _resource_path(rel):
+    """Acha templates/static rodando normal, no PyInstaller ou no Nuitka (compilado)."""
+    candidates = []
+    if hasattr(sys, '_MEIPASS'):
+        candidates.append(sys._MEIPASS)              # PyInstaller
+    candidates.append(os.path.dirname(sys.executable))  # Nuitka standalone (dados ao lado do .exe)
+    candidates.append(os.path.dirname(os.path.abspath(__file__)))
+    for base in candidates:
+        pth = os.path.join(base, rel)
+        if os.path.exists(pth):
+            return pth
+    return os.path.join(candidates[-1], rel)
+
+
+def _local_data_dir():
+    """Pasta gravável p/ o banco quando instalado no PC do cliente."""
+    base = os.environ.get('APPDATA') or os.path.expanduser('~')
+    d = os.path.join(base, 'ArenaAMP')
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def _get_secret_key():
+    """Usa SECRET_KEY do ambiente (hospedado) ou gera uma aleatória por instalação (local)."""
+    env = os.environ.get('SECRET_KEY')
+    if env:
+        return env
+    path = os.path.join(_local_data_dir(), 'secret.key')
+    try:
+        if os.path.exists(path):
+            return open(path).read().strip()
+        import secrets
+        k = secrets.token_hex(32)
+        with open(path, 'w') as f:
+            f.write(k)
+        return k
+    except Exception:
+        return 'chave_local_fallback'
+
+
+app = Flask(__name__,
+            template_folder=_resource_path('templates'),
+            static_folder=_resource_path('static'))
+app.config['SECRET_KEY'] = _get_secret_key()
 
 db_url = os.environ.get('DATABASE_URL')
 if db_url and db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql://", 1)
-app.config['SQLALCHEMY_DATABASE_URI'] = db_url or 'sqlite:///arena.db'
+if not db_url:
+    # Instalação local: banco em %APPDATA%\ArenaAMP\arena.db (não some, é gravável)
+    _db_path = os.path.join(_local_data_dir(), 'arena.db').replace('\\', '/')
+    db_url = 'sqlite:///' + _db_path
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -24,13 +81,31 @@ enrollments = db.Table('enrollments',
     db.Column('class_session_id', db.Integer, db.ForeignKey('class_session.id'), primary_key=True)
 )
 
+ALL_MODULES = ['aulas', 'ranking', 'comandas', 'relatorios', 'config', 'assinatura']
+
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
+    role = db.Column(db.String(20), nullable=True, default='user')   # 'adm' vê tudo; 'user' segue perms
+    perms = db.Column(db.String(200), nullable=True, default='')     # csv de módulos liberados
+    photo = db.Column(db.String(200), nullable=True)                 # nome do arquivo em uploads/
     def set_password(self, p): self.password_hash = generate_password_hash(p)
     def check_password(self, p): return check_password_hash(self.password_hash, p)
+    @property
+    def is_adm(self):
+        return (self.role or 'user') == 'adm'
+    def perm_list(self):
+        return [p for p in (self.perms or '').split(',') if p]
+    def can(self, module):
+        return self.is_adm or module in self.perm_list()
+
+class Setting(db.Model):
+    """Chave/valor para identidade global da arena (nome, logo, cor)."""
+    __tablename__ = 'settings'
+    key = db.Column(db.String(50), primary_key=True)
+    value = db.Column(db.Text, nullable=True)
 
 class ClassSession(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -59,6 +134,29 @@ class StudentHistory(db.Model):
     date_str = db.Column(db.String(20), nullable=False)
     action_type = db.Column(db.String(30), nullable=True, default='info')
     credit_delta = db.Column(db.Integer, nullable=True, default=0)
+
+class ActivityLog(db.Model):
+    """Registro geral de tudo que acontece no ecossistema (auditoria global)."""
+    id = db.Column(db.Integer, primary_key=True)
+    system = db.Column(db.String(20), nullable=True, default='aulas')     # aulas/comandas/ranking/config
+    category = db.Column(db.String(20), nullable=False, default='info')  # presenca/falta/reposicao/pagamento/aluno/turma/matricula/exclusao/...
+    action_type = db.Column(db.String(30), nullable=True, default='info')
+    description = db.Column(db.String(300), nullable=False)
+    user = db.Column(db.String(50), nullable=True, default='sistema')
+    date_str = db.Column(db.String(20), nullable=False)     # exibição: dd/mm/YYYY HH:MM
+    created_at = db.Column(db.String(20), nullable=False)    # ordenação/agrupamento: YYYY-MM-DD HH:MM:SS
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'system': self.system or 'aulas',
+            'category': self.category,
+            'action_type': self.action_type,
+            'description': self.description,
+            'user': self.user or 'sistema',
+            'date': self.date_str,
+            'datetime': self.created_at,
+        }
 
 class Student(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -143,6 +241,21 @@ def add_history(student_id, description, action_type='info', credit_delta=0):
                          credit_delta=credit_delta)
     db.session.add(log)
 
+def add_activity(description, category='info', action_type='info', system='aulas'):
+    """Registra uma ação no log geral do ecossistema, guardando quem fez e em qual sistema."""
+    try:
+        uname = current_user.username if getattr(current_user, 'is_authenticated', False) else 'sistema'
+    except Exception:
+        uname = 'sistema'
+    now = datetime.now()
+    db.session.add(ActivityLog(
+        system=system, category=category, action_type=action_type, description=description,
+        user=uname, date_str=now.strftime('%d/%m/%Y %H:%M'),
+        created_at=now.strftime('%Y-%m-%d %H:%M:%S')))
+
+# Disponibiliza para os módulos (comandas/ranking) registrarem no mesmo log global
+app.add_activity = add_activity
+
 def compute_next_payment(payment_day: int, reference_date: datetime = None) -> str:
     if reference_date is None:
         reference_date = datetime.now()
@@ -158,34 +271,245 @@ def compute_next_payment(payment_day: int, reference_date: datetime = None) -> s
             candidate = candidate.replace(month=candidate.month + 1)
     return candidate.strftime('%Y-%m-%d')
 
-# ── AUTH ──────────────────────────────────────────────────────────────────────
+# ── IDENTIDADE GLOBAL (Configurações) ─────────────────────────────────────────
 
-@app.route('/setup')
-def setup():
+DEFAULT_IDENTITY = {'arena_name': 'Arena AMP', 'accent': '#FF7A1A', 'logo': ''}
+
+def _uploads_dir():
+    d = os.path.join(_local_data_dir(), 'uploads')
+    os.makedirs(d, exist_ok=True)
+    return d
+
+def get_setting(key, default=''):
     try:
-        db.create_all()
-        if not User.query.filter_by(username='admin').first():
-            admin = User(username='admin')
-            admin.set_password('admin123')
-            db.session.add(admin)
-            db.session.commit()
-            msg = "Tabelas e Admin criados!"
-        else:
-            msg = "Banco e Admin já existem."
-        return f"<h1 style='color:green'>{msg}</h1><a href='/login'>Ir para Login</a>"
+        s = db.session.get(Setting, key)
+        return s.value if (s and s.value not in (None, '')) else default
+    except Exception:
+        return default
+
+def set_setting(key, value):
+    s = db.session.get(Setting, key)
+    if not s:
+        s = Setting(key=key)
+        db.session.add(s)
+    s.value = value
+
+def get_identity():
+    return {
+        'arena_name': get_setting('arena_name', DEFAULT_IDENTITY['arena_name']),
+        'accent':     get_setting('accent',     DEFAULT_IDENTITY['accent']),
+        'logo':       get_setting('logo',        DEFAULT_IDENTITY['logo']),
+    }
+
+@app.context_processor
+def inject_identity():
+    """Deixa a identidade da arena disponível em todos os templates como `arena`."""
+    try:
+        return {'arena': get_identity()}
+    except Exception:
+        return {'arena': dict(DEFAULT_IDENTITY)}
+
+@app.route('/uploads/<path:filename>')
+@login_required
+def uploaded_file(filename):
+    return send_from_directory(_uploads_dir(), filename)
+
+@app.route('/api/identity')
+@login_required
+def api_identity():
+    """Identidade da arena para os módulos aplicarem cor/nome/logo (qualquer usuário logado)."""
+    ident = get_identity()
+    ident['logo_url'] = url_for('uploaded_file', filename=ident['logo']) if ident['logo'] else None
+    return jsonify(ident)
+
+
+# ── PLANO / ASSINATURA ────────────────────────────────────────────────────────
+CONTATO = {'whatsapp': '(11) 97244-7927', 'whatsapp_link': 'https://wa.me/5511972447927',
+           'email': 'fehgodinho98@gmail.com'}
+
+# Link do site do sistema (card "Site" no Hub) — só abre pra quem tem o add-on
+# de site contratado. Placeholder genérico por enquanto; troque quando tiver
+# o site de verdade (um lugar só).
+SITE_URL = 'https://www.google.com'
+
+def _plan_info():
+    """Estado do plano do cliente. EM PRODUÇÃO deve vir do payload ASSINADO da licença
+    (license_client) — nunca de um flag local, senão é trivial de burlar.
+    Em modo dev, lê a Setting 'dev_plan' só para pré-visualizar os estados."""
+    plan, dias, has_site, site_url = 'free', None, False, ''
+    if DEV_MODE:
+        plan = get_setting('dev_plan', 'free')
+        if plan == 'demo':
+            dias = int(get_setting('dev_demo_dias', '7') or 7)
+        has_site = get_setting('dev_has_site', '') == '1'
+        site_url = get_setting('dev_site_url', '') or SITE_URL
+    else:
+        try:
+            import license_client
+            info = license_client.get_plan()   # {'plan', 'demo_days_left', 'has_site', 'site_url'}
+            plan = info.get('plan', 'free')
+            dias = info.get('demo_days_left')
+            has_site = bool(info.get('has_site'))
+            site_url = info.get('site_url', '') or ''
+        except Exception:
+            plan = 'free'
+    return {'plan': plan, 'demo_days_left': dias, 'is_premium': plan == 'premium',
+            'is_demo': plan == 'demo', 'has_site': has_site, 'site_url': site_url, 'contato': CONTATO}
+
+@app.route('/api/plan')
+@login_required
+def api_plan():
+    return jsonify(_plan_info())
+
+def _banner_text():
+    if DEV_MODE:
+        return get_setting('dev_banner', '')
+    try:
+        import license_client
+        return license_client.get_banner()
+    except Exception:
+        return ''
+
+@app.route('/api/banner')
+@login_required
+def api_banner():
+    return jsonify({'banner': _banner_text()})
+
+@app.route('/api/promo')
+@login_required
+def api_promo():
+    """Banner promocional GLOBAL (imagem), configurado no /admin do
+    license-server. Vale pra todos os produtos (arena, oficina...)."""
+    try:
+        import license_client
+        return jsonify(license_client.get_promo())
+    except Exception:
+        return jsonify({'image_url': '', 'wa_text': ''})
+
+@app.route('/api/plan/dev', methods=['POST'])
+@login_required
+def api_plan_dev():
+    """Alterna o plano SOMENTE em modo dev (para testar o visual premium/demo)."""
+    if not DEV_MODE or not adm_required():
+        return jsonify({'error': 'Indisponível.'}), 403
+    p = (request.get_json(silent=True) or {}).get('plan', 'free')
+    set_setting('dev_plan', p if p in ('free', 'premium', 'demo') else 'free')
+    db.session.commit()
+    return jsonify(_plan_info())
+
+
+@app.route('/api/checkout', methods=['POST'])
+@login_required
+def api_checkout():
+    """Inicia um checkout de pagamento avulso no Mercado Pago pra renovar
+    a licença deste PC. Envolve dinheiro — só admin decide."""
+    if not adm_required():
+        return jsonify({'error': 'Acesso restrito ao administrador.'}), 403
+    if DEV_MODE:
+        return jsonify({'error': 'Indisponível em modo de desenvolvimento.'}), 400
+    data = request.get_json(silent=True) or {}
+    try:
+        import license_client
+        res = license_client.create_checkout(data.get('plan'), bool(data.get('site')))
+    except Exception:
+        res = {'error': 'Falha ao conectar ao servidor de licenças.'}
+    return jsonify(res), (200 if res.get('checkout_url') else 502)
+
+
+@app.route('/api/checkout/verify', methods=['POST'])
+@login_required
+def api_checkout_verify():
+    """Força uma revalidação ONLINE (não só o cache local) da licença, pra
+    refletir um pagamento recém-aprovado sem precisar fechar e reabrir o app."""
+    if not DEV_MODE:
+        try:
+            import license_client
+            license_client.check_license()
+        except Exception:
+            pass
+    return jsonify(_plan_info())
+
+
+def _save_upload(file_storage, prefix):
+    """Salva um upload (logo/foto) e devolve o nome do arquivo, ou None."""
+    if not file_storage or not file_storage.filename:
+        return None
+    ext = os.path.splitext(file_storage.filename)[1].lower()
+    if ext not in ('.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg', '.ico'):
+        return None
+    name = f"{prefix}_{datetime.now().strftime('%Y%m%d%H%M%S')}{ext}"
+    file_storage.save(os.path.join(_uploads_dir(), secure_filename(name)))
+    return secure_filename(name)
+
+def adm_required():
+    """True se o usuário atual é ADM; caso contrário deixa a rota barrar."""
+    return bool(getattr(current_user, 'is_adm', False))
+
+@app.before_request
+def _aulas_api_guard():
+    """APIs de dados do Aulas exigem a permissão do módulo (o Hub esconde,
+    mas chamada direta também precisa ser barrada)."""
+    p = request.path
+    if (p.startswith('/api/students') or p.startswith('/api/classes') or p.startswith('/api/alerts')):
+        if getattr(current_user, 'is_authenticated', False) and not current_user.can('aulas'):
+            return jsonify({'error': 'Acesso restrito: sem permissão para o Aulas.'}), 403
+    return None
+
+# ── BACKUP AUTOMÁTICO SEMANAL ─────────────────────────────────────────────────
+
+def auto_backup():
+    """Copia o arena.db inteiro para %APPDATA%\\ArenaAMP\\backups\\ no máximo 1x
+    por semana (verificado a cada inicialização). Mantém as 8 cópias mais recentes.
+    O .db é um backup completo de TODOS os módulos (aulas/comandas/ranking/config)."""
+    try:
+        if os.environ.get('DATABASE_URL'):
+            return  # hospedado (Postgres) não usa backup local
+        src = os.path.join(_local_data_dir(), 'arena.db')
+        if not os.path.exists(src):
+            return
+        bdir = os.path.join(_local_data_dir(), 'backups')
+        os.makedirs(bdir, exist_ok=True)
+        existentes = sorted(f for f in os.listdir(bdir) if f.startswith('arena_') and f.endswith('.db'))
+        if existentes:
+            try:
+                ultimo = datetime.strptime(existentes[-1][6:16], '%Y-%m-%d')
+                if (datetime.now() - ultimo).days < 7:
+                    return
+            except ValueError:
+                pass
+        import sqlite3
+        dst = os.path.join(bdir, f"arena_{datetime.now().strftime('%Y-%m-%d')}.db")
+        con_src = sqlite3.connect(src)
+        con_dst = sqlite3.connect(dst)
+        with con_dst:
+            con_src.backup(con_dst)   # cópia consistente, mesmo com o app aberto
+        con_dst.close(); con_src.close()
+        todas = sorted(f for f in os.listdir(bdir) if f.startswith('arena_') and f.endswith('.db'))
+        for f in todas[:-8]:
+            os.remove(os.path.join(bdir, f))
+        try:
+            with app.app_context():
+                add_activity('Backup automático semanal criado (backups/' + os.path.basename(dst) + ')',
+                             category='config', action_type='config', system='config')
+                db.session.commit()
+        except Exception:
+            pass
+        print(f"[backup] semanal salvo em {dst}")
     except Exception as e:
-        return f"<h1 style='color:red'>Erro: {str(e)}</h1>"
+        print(f"[backup] automático falhou: {e}")
+
+# ── AUTH ──────────────────────────────────────────────────────────────────────
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for('index'))
+        return redirect(url_for('shell'))
     error = None
     if request.method == 'POST':
         user = User.query.filter_by(username=request.form['username']).first()
         if user and user.check_password(request.form['password']):
             login_user(user)
-            return redirect(url_for('index'))
+            return redirect(url_for('shell'))
         else:
             error = "Usuário ou Senha incorretos"
     return render_template('login.html', error=error)
@@ -196,23 +520,194 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
+def _enabled_modules():
+    """Módulos liberados pela licença (lista). Relatórios é recurso da plataforma
+    (liberado junto quando há licença válida). Licença inválida/bloqueada → lista
+    vazia (Hub tranca tudo) — NUNCA liberar por falha, senão vira brecha."""
+    if DEV_MODE:
+        return ['aulas', 'comandas', 'ranking', 'relatorios']
+    try:
+        import license_client
+        mods = list(license_client.get_modules())
+    except Exception:
+        mods = []
+    if mods and 'relatorios' not in mods:
+        mods.append('relatorios')
+    return mods
+
+
+SHELL_MODULE_DEFS = [
+    {'key': 'aulas',      'name': 'Aulas',         'icon': 'fa-users',      'url': '/aulas'},
+    {'key': 'ranking',    'name': 'Ranking',       'icon': 'fa-trophy',     'url': '/ranking/'},
+    {'key': 'comandas',   'name': 'Comandas',      'icon': 'fa-receipt',    'url': '/comandas/'},
+    {'key': 'relatorios', 'name': 'Relatórios',    'icon': 'fa-chart-line', 'url': '/relatorios/'},
+]
+
+def _shell_modules():
+    """Módulos que o usuário atual pode abrir em abas (licença + permissão)."""
+    mods = _enabled_modules()
+    out = [m for m in SHELL_MODULE_DEFS if m['key'] in mods and current_user.can(m['key'])]
+    if current_user.can('config'):
+        out.append({'key': 'config', 'name': 'Configurações', 'icon': 'fa-gear', 'url': '/configuracoes'})
+    return out
+
 @app.route('/')
 @login_required
+def shell():
+    return render_template('shell.html', user=current_user, shell_modules=_shell_modules(),
+                           plan=_plan_info(), is_dev=bool(DEV_MODE))
+
+@app.route('/hub')
+@login_required
+def hub():
+    try:
+        from version import APP_VERSION
+    except Exception:
+        APP_VERSION = ''
+    return render_template('hub.html', user=current_user, modules=_enabled_modules(),
+                           plan=_plan_info(), site_url=SITE_URL, app_version=APP_VERSION)
+
+
+@app.route('/assinatura')
+@login_required
+def assinatura():
+    if not current_user.can('assinatura'):
+        return render_template('nao_autorizado.html'), 403
+    return render_template('assinatura.html', user=current_user, plan=_plan_info())
+
+
+@app.route('/api/assinatura')
+@login_required
+def api_assinatura():
+    """Dados da assinatura pra página. Em dev não há licença real → devolve o
+    básico do _plan_info; em produção relaia o license-server."""
+    if not current_user.can('assinatura'):
+        return jsonify({'error': 'Acesso restrito.'}), 403
+    if DEV_MODE:
+        info = _plan_info()
+        return jsonify({'plan': info['plan'], 'active': info['is_premium'],
+                        'expires_at': '', 'ciclo': None, 'desde': None, 'pagamentos': []})
+    try:
+        import license_client
+        return jsonify(license_client.subscription_info())
+    except Exception:
+        return jsonify({'error': 'Falha ao consultar a assinatura.'}), 502
+
+
+@app.route('/aulas')
+@login_required
 def index():
+    if 'aulas' not in _enabled_modules() or not current_user.can('aulas'):
+        return render_template('nao_autorizado.html'), 403
     return render_template('index.html', user=current_user)
 
-@app.route('/reset-banco-de-dados')
-def reset_db():
-    try:
-        db.drop_all()
-        db.create_all()
-        admin = User(username='admin')
-        admin.set_password('admin123')
-        db.session.add(admin)
+
+@app.route('/configuracoes')
+@login_required
+def configuracoes():
+    if not current_user.can('config'):
+        return render_template('nao_autorizado.html'), 403
+    return render_template('configuracoes.html', user=current_user,
+                           identity=get_identity(), all_modules=ALL_MODULES,
+                           modules=_enabled_modules())
+
+
+# ── API CONFIGURAÇÕES (somente ADM) ───────────────────────────────────────────
+
+def _deny_if_not_adm():
+    if not adm_required():
+        return jsonify({'error': 'Acesso restrito ao administrador.'}), 403
+    return None
+
+MODULE_LABELS = {'aulas': 'Aulas', 'ranking': 'Ranking', 'comandas': 'Comandas', 'relatorios': 'Relatórios'}
+
+@app.route('/api/config/identity', methods=['GET', 'POST'])
+@login_required
+def config_identity():
+    guard = _deny_if_not_adm()
+    if guard: return guard
+    if request.method == 'GET':
+        return jsonify(get_identity())
+    name = (request.form.get('arena_name') or '').strip()
+    accent = (request.form.get('accent') or '').strip()
+    if name:
+        set_setting('arena_name', name[:60])
+    if accent:
+        set_setting('accent', accent[:9])
+    logo = _save_upload(request.files.get('logo'), 'logo')
+    if logo:
+        set_setting('logo', logo)
+    db.session.commit()
+    add_activity('Identidade da arena atualizada', category='config', action_type='config')
+    return jsonify({'ok': True, **get_identity()})
+
+@app.route('/api/config/users', methods=['GET', 'POST'])
+@login_required
+def config_users():
+    guard = _deny_if_not_adm()
+    if guard: return guard
+    if request.method == 'GET':
+        users = User.query.order_by(User.id).all()
+        return jsonify([{
+            'id': u.id, 'username': u.username, 'role': u.role or 'user',
+            'perms': u.perm_list(),
+            'photo': url_for('uploaded_file', filename=u.photo) if u.photo else None,
+        } for u in users])
+    # POST — criar usuário
+    username = (request.form.get('username') or '').strip()
+    password = request.form.get('password') or ''
+    role = 'adm' if request.form.get('role') == 'adm' else 'user'
+    perms = ','.join([m for m in request.form.getlist('perms') if m in ALL_MODULES])
+    if not username or not password:
+        return jsonify({'error': 'Informe usuário e senha.'}), 400
+    if User.query.filter_by(username=username).first():
+        return jsonify({'error': 'Já existe um usuário com esse nome.'}), 400
+    u = User(username=username, role=role, perms=perms)
+    u.set_password(password)
+    photo = _save_upload(request.files.get('photo'), 'user')
+    if photo:
+        u.photo = photo
+    db.session.add(u)
+    db.session.commit()
+    add_activity(f"Usuário '{username}' criado", category='config', action_type='config')
+    return jsonify({'ok': True, 'id': u.id})
+
+@app.route('/api/config/users/<int:uid>', methods=['PUT', 'DELETE'])
+@login_required
+def config_user_detail(uid):
+    guard = _deny_if_not_adm()
+    if guard: return guard
+    u = db.session.get(User, uid)
+    if not u:
+        return jsonify({'error': 'Usuário não encontrado.'}), 404
+    if request.method == 'DELETE':
+        if u.id == current_user.id:
+            return jsonify({'error': 'Você não pode excluir a si mesmo.'}), 400
+        if u.is_adm and User.query.filter_by(role='adm').count() <= 1:
+            return jsonify({'error': 'Não é possível remover o único administrador.'}), 400
+        name = u.username
+        db.session.delete(u)
         db.session.commit()
-        return "<h1 style='color:blue'>Banco RESETADO! <a href='/login'>Login</a></h1>"
-    except Exception as e:
-        return f"<h1>Erro: {e}</h1>"
+        add_activity(f"Usuário '{name}' removido", category='config', action_type='config')
+        return jsonify({'ok': True})
+    # PUT — atualizar papel/permissões/senha/foto
+    if 'role' in request.form:
+        new_role = 'adm' if request.form.get('role') == 'adm' else 'user'
+        # não deixar rebaixar o último ADM
+        if u.is_adm and new_role != 'adm' and User.query.filter_by(role='adm').count() <= 1:
+            return jsonify({'error': 'Deve existir ao menos um administrador.'}), 400
+        u.role = new_role
+    if 'perms' in request.form:
+        u.perms = ','.join([m for m in request.form.getlist('perms') if m in ALL_MODULES])
+    pw = request.form.get('password')
+    if pw:
+        u.set_password(pw)
+    photo = _save_upload(request.files.get('photo'), 'user')
+    if photo:
+        u.photo = photo
+    db.session.commit()
+    add_activity(f"Usuário '{u.username}' atualizado", category='config', action_type='config')
+    return jsonify({'ok': True})
 
 # ── CLASSES ───────────────────────────────────────────────────────────────────
 
@@ -225,6 +720,9 @@ def manage_classes():
     new_c = ClassSession(day=d['day'], time=d['time'],
                          professor=d['professor'], capacity=int(d['capacity']))
     db.session.add(new_c)
+    db.session.flush()
+    add_activity(f"Turma {new_c.day} {new_c.time} criada (Prof. {new_c.professor})",
+                 category='turma', action_type='turma_criada')
     db.session.commit()
     return jsonify(new_c.to_dict())
 
@@ -233,6 +731,7 @@ def manage_classes():
 def delete_class(id):
     c = db.session.get(ClassSession, id)
     if c:
+        add_activity(f"Turma {c.day} {c.time} excluída", category='exclusao', action_type='turma_excluida')
         db.session.delete(c)
         db.session.commit()
     return jsonify({'msg': 'ok'})
@@ -244,6 +743,8 @@ def add_student_to_class(class_id):
     s = db.session.get(Student, int(request.json.get('student_id')))
     if c and s and s not in c.students:
         c.students.append(s)
+        add_activity(f"{s.name} matriculado na turma {c.day} {c.time}",
+                     category='matricula', action_type='matricula')
         db.session.commit()
     return jsonify(c.to_dict())
 
@@ -254,6 +755,8 @@ def remove_student_from_class(class_id):
     s = db.session.get(Student, int(request.json.get('student_id')))
     if c and s and s in c.students:
         c.students.remove(s)
+        add_activity(f"{s.name} removido da turma {c.day} {c.time}",
+                     category='turma', action_type='desmatricula')
         db.session.commit()
     return jsonify(c.to_dict())
 
@@ -298,6 +801,8 @@ def manage_students():
     add_history(new_s.id,
                 f"Plano {new_s.plan} iniciado. Início: {new_s.start_date} | Fim: {new_s.end_date} | Venc. todo dia {new_s.payment_day}",
                 action_type='info')
+    add_activity(f"Aluno {new_s.name} cadastrado — plano {new_s.plan}",
+                 category='aluno', action_type='aluno_criado')
     db.session.commit()
     return jsonify(new_s.to_dict())
 
@@ -335,6 +840,7 @@ def update_student_data(id):
             except:
                 continue
 
+    add_activity(f"Aluno {s.name} editado", category='aluno', action_type='aluno_editado')
     db.session.commit()
     return jsonify(s.to_dict())
 
@@ -343,6 +849,7 @@ def update_student_data(id):
 def delete_student(id):
     s = db.session.get(Student, id)
     if s:
+        add_activity(f"Aluno {s.name} excluído do sistema", category='exclusao', action_type='aluno_excluido')
         db.session.delete(s)
         db.session.commit()
     return jsonify({'msg': 'ok'})
@@ -356,6 +863,7 @@ def toggle_status(id):
     s.active = not s.active
     status_str = "ATIVADO" if s.active else "INATIVADO"
     add_history(s.id, f"Status alterado para {status_str}", action_type='info')
+    add_activity(f"Aluno {s.name} {status_str.lower()}", category='aluno', action_type='status')
     db.session.commit()
     return jsonify(s.to_dict())
 
@@ -371,36 +879,41 @@ def student_action(id):
     action = request.json.get('action')
 
     if action == 'presenca':
-        if s.credits > 0:
-            s.credits -= 1
-        add_history(s.id, "✅ Presença registrada", action_type='presenca', credit_delta=-1)
+        delta = -1 if s.credits > 0 else 0
+        s.credits += delta
+        add_history(s.id, "✅ Presença registrada", action_type='presenca', credit_delta=delta)
+        add_activity(f"{s.name} — presença registrada" + (" (−1 aula)" if delta else ""), category='presenca', action_type='presenca')
 
     elif action == 'falta_com_reposicao':
-        if s.credits > 0:
-            s.credits -= 1
+        delta = -1 if s.credits > 0 else 0
+        s.credits += delta
         exp = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d')
         db.session.add(Replacement(student_id=s.id,
                                    created_at=datetime.now().strftime('%Y-%m-%d'),
                                    expires_at=exp))
         add_history(s.id, "⚠️ Falta com aviso prévio — +1 Reposição gerada",
-                    action_type='falta_aviso', credit_delta=-1)
+                    action_type='falta_aviso', credit_delta=delta)
+        add_activity(f"{s.name} — falta com aviso (+1 reposição)", category='falta', action_type='falta_aviso')
 
     elif action == 'falta_sem_aviso':
-        if s.credits > 0:
-            s.credits -= 1
+        delta = -1 if s.credits > 0 else 0
+        s.credits += delta
         add_history(s.id, "❌ Falta SEM aviso prévio — aula perdida",
-                    action_type='falta_sem_aviso', credit_delta=-1)
+                    action_type='falta_sem_aviso', credit_delta=delta)
+        add_activity(f"{s.name} — falta sem aviso (aula perdida)", category='falta', action_type='falta_sem_aviso')
 
     elif action == 'usar_reposicao':
         if s.replacements:
             db.session.delete(s.replacements[0])
             add_history(s.id, "🔄 Reposição utilizada", action_type='usar_reposicao', credit_delta=0)
+            add_activity(f"{s.name} — reposição utilizada (−1 reposição)", category='reposicao', action_type='usar_reposicao')
 
     elif action == 'anular_reposicao':
         if s.replacements:
             db.session.delete(s.replacements[0])
             add_history(s.id, "🚫 Reposição anulada (falta na reposição)",
                         action_type='anular_reposicao', credit_delta=0)
+            add_activity(f"{s.name} — reposição anulada", category='reposicao', action_type='anular_reposicao')
 
     db.session.commit()
     return jsonify({'success': True, 'credits': s.credits, 'student': s.to_dict()})
@@ -448,6 +961,7 @@ def register_payment(id):
     add_history(s.id,
                 f"💰 Pagamento recebido: R$ {fmt} em {payment_dt.strftime('%d/%m/%Y')} — Próx. venc.: dia {s.payment_day}",
                 action_type='pagamento', credit_delta=0)
+    add_activity(f"{s.name} — R$ {fmt} recebido", category='pagamento', action_type='pagamento')
 
     db.session.commit()
     return jsonify({'success': True, 'student': s.to_dict()})
@@ -484,12 +998,121 @@ def get_alerts():
 
     return jsonify({'overdue': overdue, 'due_soon': due_soon, 'expiring': expiring})
 
+# ── ACTIVITY LOG (auditoria global) ───────────────────────────────────────────
+
+@app.route('/api/activity')
+@login_required
+def get_activity():
+    q = ActivityLog.query
+    system = request.args.get('system')
+    if system:
+        if system == 'aulas':
+            # registros antigos não têm a coluna preenchida — contam como aulas
+            q = q.filter(db.or_(ActivityLog.system == 'aulas', ActivityLog.system.is_(None)))
+        else:
+            q = q.filter(ActivityLog.system == system)
+    user_f = request.args.get('user')
+    if user_f:
+        q = q.filter(ActivityLog.user == user_f)
+    logs = q.order_by(ActivityLog.id.desc()).limit(500).all()
+    return jsonify([l.to_dict() for l in logs])
+
+
+# ── MÓDULO RELATÓRIOS (frontend + relatório de Aulas) ────────────────────────
+
+@app.route('/relatorios/')
+@login_required
+def relatorios_home():
+    # Barra final obrigatória: os assets (app.js/style.css) são relativos à URL.
+    # O Flask redireciona /relatorios -> /relatorios/ automaticamente.
+    if not current_user.can('relatorios'):
+        return render_template('nao_autorizado.html'), 403
+    return send_from_directory(_resource_path('relatorios_static'), 'index.html')
+
+@app.route('/relatorios/<path:fname>')
+@login_required
+def relatorios_asset(fname):
+    return send_from_directory(_resource_path('relatorios_static'), fname)
+
+@app.route('/api/relatorios/aulas', methods=['POST'])
+@login_required
+def relatorio_aulas():
+    """Relatório do módulo Aulas: base de alunos, receita, ocupação e movimento do período."""
+    if not current_user.can('relatorios'):
+        return jsonify({'detail': 'Acesso restrito.'}), 403
+    d = request.get_json(silent=True) or {}
+    hoje_dt = datetime.now()
+    di = (d.get('data_inicio') or hoje_dt.strftime('%Y-%m-%d'))[:10]
+    df = (d.get('data_fim') or hoje_dt.strftime('%Y-%m-%d'))[:10]
+    if di > df:
+        di, df = df, di
+
+    students = Student.query.all()
+    ativos = [s for s in students if s.active]
+    receita_mensal = sum(s.price or 0 for s in ativos)
+    hoje = hoje_dt.strftime('%Y-%m-%d')
+    em7 = (hoje_dt + timedelta(days=7)).strftime('%Y-%m-%d')
+    vencidos = [s for s in ativos if s.next_payment and s.next_payment < hoje]
+    vence_7d = [s for s in ativos if s.next_payment and hoje <= s.next_payment <= em7]
+
+    # Alunos por plano
+    planos = {}
+    for s in ativos:
+        planos[s.plan or 'Sem plano'] = planos.get(s.plan or 'Sem plano', 0) + 1
+
+    # Ocupação por turma
+    turmas = ClassSession.query.all()
+    ocupacao = sorted([{
+        'turma': f'{t.day} {t.time}', 'professor': t.professor,
+        'alunos': len(t.students), 'capacidade': t.capacity or 6,
+    } for t in turmas], key=lambda x: -x['alunos'])
+    vagas_total = sum(x['capacidade'] for x in ocupacao)
+    ocup_pct = round(sum(x['alunos'] for x in ocupacao) / vagas_total * 100, 1) if vagas_total else 0
+
+    # Movimento do período (log de atividades do sistema Aulas)
+    logs = (ActivityLog.query
+            .filter(db.or_(ActivityLog.system == 'aulas', ActivityLog.system.is_(None)))
+            .filter(ActivityLog.created_at >= di)
+            .filter(ActivityLog.created_at <= df + ' 23:59:59')
+            .all())
+    cats = {}
+    por_dia = {}
+    for l in logs:
+        cats[l.category] = cats.get(l.category, 0) + 1
+        dia = (l.created_at or '')[:10]
+        if dia:
+            por_dia[dia] = por_dia.get(dia, 0) + 1
+
+    return jsonify({
+        'data_inicio': di, 'data_fim': df,
+        'alunos_ativos': len(ativos),
+        'alunos_inativos': len(students) - len(ativos),
+        'receita_mensal_estimada': round(receita_mensal, 2),
+        'ticket_medio': round(receita_mensal / len(ativos), 2) if ativos else 0,
+        'ocupacao_pct': ocup_pct,
+        'turmas': ocupacao,
+        'planos': [{'plano': k, 'alunos': v} for k, v in sorted(planos.items(), key=lambda x: -x[1])],
+        'vencidos': [{'nome': s.name, 'valor': s.price or 0, 'vencimento': s.next_payment} for s in vencidos],
+        'vence_7d': [{'nome': s.name, 'valor': s.price or 0, 'vencimento': s.next_payment} for s in vence_7d],
+        'movimento': {
+            'presencas': cats.get('presenca', 0),
+            'faltas': cats.get('falta', 0),
+            'reposicoes': cats.get('reposicao', 0),
+            'pagamentos': cats.get('pagamento', 0),
+            'novos_alunos': cats.get('aluno', 0),
+            'total_acoes': len(logs),
+        },
+        'atividade_por_dia': [{'dia': k, 'acoes': v} for k, v in sorted(por_dia.items())],
+    })
+
 # ── MIGRATE (safe — keeps all data) ──────────────────────────────────────────
 
 @app.route('/migrate')
 @login_required
 def migrate():
     """Adds new columns without dropping any data. Run once after deploying new code."""
+    if not adm_required():
+        return render_template('nao_autorizado.html'), 403
     try:
         from sqlalchemy import text, inspect as sa_inspect
 
@@ -514,6 +1137,12 @@ def migrate():
                 ('student', 'last_payment',     "ALTER TABLE student ADD COLUMN last_payment VARCHAR(10)", None),
                 ('student_history', 'action_type', "ALTER TABLE student_history ADD COLUMN action_type VARCHAR(30) DEFAULT 'info'", None),
                 ('student_history', 'credit_delta', "ALTER TABLE student_history ADD COLUMN credit_delta INTEGER DEFAULT 0", None),
+                ('users', 'role',  "ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user'",
+                 "UPDATE users SET role = 'user' WHERE role IS NULL"),
+                ('users', 'perms', "ALTER TABLE users ADD COLUMN perms VARCHAR(200) DEFAULT ''", None),
+                ('users', 'photo', "ALTER TABLE users ADD COLUMN photo VARCHAR(200)", None),
+                ('activity_log', 'system', "ALTER TABLE activity_log ADD COLUMN system VARCHAR(20) DEFAULT 'aulas'",
+                 "UPDATE activity_log SET system = 'aulas' WHERE system IS NULL"),
             ]
 
             for table, col, alter_sql, update_sql in migrations:
@@ -577,7 +1206,9 @@ def migrate():
 @app.route('/api/backup')
 @login_required
 def backup():
-    """Returns a full JSON backup of all data."""
+    """Returns a full JSON backup of all data. Restrito ao administrador."""
+    if not adm_required():
+        return jsonify({'error': 'Backup é restrito ao administrador.'}), 403
     import json
 
     students = Student.query.all()
@@ -633,7 +1264,9 @@ def backup():
 @app.route('/restore', methods=['GET', 'POST'])
 @login_required
 def restore():
-    """Upload a backup JSON file and restore all data (merges, doesn't wipe)."""
+    """Upload a backup JSON file and restore all data (merges, doesn't wipe). Restrito ao ADM."""
+    if not adm_required():
+        return render_template('nao_autorizado.html'), 403
     import json
 
     if request.method == 'GET':
@@ -769,7 +1402,22 @@ def restore():
     """
 
 
+# ── MÓDULO RANKING (Flask/SQLite, integrado em /ranking) ──────────────────────
+try:
+    import ranking_module
+    ranking_module.register(app, db, User, _resource_path)
+except Exception as _rk_err:
+    print(f"[ranking] módulo não carregado: {_rk_err}")
+
+# ── MÓDULO COMANDAS (Flask/SQLite, integrado em /comandas) ────────────────────
+try:
+    import comandas_module
+    comandas_module.register(app, db, User, _resource_path)
+except Exception as _cm_err:
+    print(f"[comandas] módulo não carregado: {_cm_err}")
+
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(host='0.0.0.0', debug=True)
+    app.run(host='127.0.0.1', debug=False)

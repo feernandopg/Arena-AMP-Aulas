@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relatórios — Arena AMP</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <script>if (window.self !== window.top) document.documentElement.classList.add('in-shell');</script>
+  <!-- TOPBAR (pílula QUADRA — marca/usuário vivem no shell de abas) -->
+  <header class="topbar">
+    <div class="brand">
+      <img id="brand-logo" src="" alt="" style="display:none">
+      <span id="brand-name">Arena AMP</span>
+      <span class="sep">·</span><span class="mod">Relatórios</span>
+    </div>
+    <a class="back standalone-only" href="/"><i class="fa-solid fa-arrow-left"></i> Hub</a>
+    <nav class="nav">
+      <button data-view="aulas" class="active"><i class="fa-solid fa-users"></i><span>Aulas</span></button>
+      <button data-view="comandas"><i class="fa-solid fa-receipt"></i><span>Comandas</span></button>
+    </nav>
+  </header>
+
+  <div class="print-head" id="print-head"></div>
+
+  <!-- ══════════ RELATÓRIO AULAS ══════════ -->
+  <section class="page" id="view-aulas">
+    <div class="phead">
+      <div><h1>Relatório de Aulas</h1><p>Base de alunos, receita, ocupação das turmas e movimento.</p></div>
+      <div class="actions no-print">
+        <button class="btn btn-ghost btn-pdf"><i class="fa-solid fa-file-pdf"></i> Exportar PDF</button>
+      </div>
+    </div>
+    <div class="card no-print" style="margin-bottom:16px">
+      <div class="row" style="align-items:flex-end;flex-wrap:wrap;gap:12px">
+        <div class="field" style="margin:0"><label>Início</label><input class="inp" id="au-di" type="date"></div>
+        <div class="field" style="margin:0"><label>Fim</label><input class="inp" id="au-df" type="date"></div>
+        <button class="btn btn-primary" id="au-go"><i class="fa-solid fa-magnifying-glass"></i> Gerar</button>
+      </div>
+      <p class="hint" style="margin-top:10px;margin-bottom:0;color:var(--muted);font-size:12px">O período vale para o movimento (presenças, faltas, pagamentos). Alunos, receita e ocupação são o retrato de hoje.</p>
+    </div>
+    <div id="au-result"></div>
+  </section>
+
+  <!-- ══════════ RELATÓRIO COMANDAS ══════════ -->
+  <section class="page hidden" id="view-comandas">
+    <div class="phead">
+      <div><h1>Relatório de Comandas</h1><p>Faturamento, custo, lucro e desempenho do bar.</p></div>
+      <div class="actions no-print">
+        <div class="seg" id="rel-modo">
+          <button data-modo="fechamento" class="active">Fechamento do dia</button>
+          <button data-modo="gerencial">Período</button>
+          <button data-modo="mensal">Mensal</button>
+        </div>
+        <button class="btn btn-ghost btn-pdf"><i class="fa-solid fa-file-pdf"></i> Exportar PDF</button>
+      </div>
+    </div>
+    <div class="card no-print" style="margin-bottom:16px">
+      <div class="row" id="rel-controls" style="align-items:flex-end;flex-wrap:wrap;gap:12px"></div>
+    </div>
+    <div id="rel-result"></div>
+  </section>
+
+  <div class="toast" id="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>

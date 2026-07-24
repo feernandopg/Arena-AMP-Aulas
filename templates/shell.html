@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ arena.arena_name }} — Ecossistema</title>
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='logo.ico') }}">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{--chrome:#0C1928;--navy:#132539;--navy2:#1B3350;--accent:{{ arena.accent }};--line:#ECEAE6}
+    *{box-sizing:border-box;margin:0;font-family:'Barlow',sans-serif}
+    html,body{height:100%}
+    body{display:flex;flex-direction:column;background:#FBFAF8;overflow:hidden}
+    /* ── BARRA DE ABAS ── */
+    .chrome{background:var(--chrome);display:flex;align-items:flex-end;gap:4px;padding:8px 14px 0;flex-shrink:0}
+    .logo-mini{display:flex;align-items:center;gap:8px;color:#fff;font-weight:700;font-size:13.5px;padding:0 10px 10px 4px;white-space:nowrap}
+    .logo-mini img{width:22px;height:22px;border-radius:6px;object-fit:contain}
+    .tabs{display:flex;align-items:flex-end;gap:3px;flex:1;overflow-x:auto;scrollbar-width:none}
+    .tabs::-webkit-scrollbar{display:none}
+    .tab{display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.06);color:#8FA3B8;font-weight:600;font-size:13px;
+      padding:9px 14px;border-radius:10px 10px 0 0;cursor:pointer;white-space:nowrap;border:1px solid transparent;border-bottom:none;user-select:none}
+    .tab i.mi{font-size:12px}
+    .tab:hover{background:rgba(255,255,255,.10);color:#C8D4DF}
+    .tab.on{background:var(--navy);color:#fff;border-color:#22405E}
+    .tab.on i.mi{color:var(--accent)}
+    .tab .x{width:16px;height:16px;border-radius:5px;display:grid;place-items:center;font-size:10px;color:#5F7891;margin-right:-4px}
+    .tab .x:hover{background:rgba(255,255,255,.14);color:#fff}
+    .tab.home .x{display:none}
+    .add{width:30px;height:30px;border-radius:8px;border:none;background:transparent;color:#5F7891;font-size:14px;cursor:pointer;margin-bottom:6px;flex-shrink:0}
+    .add:hover{background:rgba(255,255,255,.1);color:#fff}
+    .user{display:flex;align-items:center;gap:8px;color:#8FA3B8;font-size:12.5px;font-weight:500;padding:0 4px 10px;white-space:nowrap}
+    .user .av{width:24px;height:24px;border-radius:50%;background:var(--navy2);display:grid;place-items:center;color:#5F7891;font-size:11px;overflow:hidden}
+    .user .av img{width:100%;height:100%;object-fit:cover}
+    .user .sair{color:#5F7891;text-decoration:none;font-size:13px;padding:5px 7px;border-radius:7px;margin-left:2px}
+    .user .sair:hover{color:#FFB27A;background:rgba(255,255,255,.08)}
+    /* ── CONTEÚDO ── */
+    .frames{flex:1;position:relative;background:#FBFAF8}
+    .frames iframe{position:absolute;inset:0;width:100%;height:100%;border:none;visibility:hidden}
+    .frames iframe.on{visibility:visible}
+    /* menu + */
+    .menu{position:fixed;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 44px -16px rgba(12,25,40,.4);padding:6px;display:none;z-index:50;min-width:190px}
+    .menu.show{display:block}
+    .menu button{display:flex;align-items:center;gap:10px;width:100%;border:none;background:none;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:600;color:#181A1F;cursor:pointer;font-family:'Barlow'}
+    .menu button:hover{background:#F4F1EC}
+    .menu button i{width:16px;color:var(--navy);font-size:13px}
+    .menu .none{color:#8E9198;font-size:12.5px;padding:8px 12px}
+    /* ── PLANOS / PREMIUM ── */
+    .chrome{position:relative}
+    .planos{display:inline-flex;align-items:center;gap:7px;margin-bottom:6px;border:1px solid #2A4158;background:rgba(255,255,255,.04);
+      color:#AEBCC9;font-weight:700;font-size:12.5px;padding:7px 13px;border-radius:9px;cursor:pointer;font-family:'Barlow';white-space:nowrap}
+    .planos:hover{color:#fff;border-color:#3A5470}
+    .planos i{font-size:12px;color:#8FA3B8}
+    /* estado premium: botão dourado + barra com filete dourado */
+    :root{--gold:#D9B45B;--gold2:#F0D488}
+    html.premium .planos{border-color:var(--gold);background:linear-gradient(180deg,rgba(240,212,136,.16),rgba(217,180,91,.08));
+      color:var(--gold2);box-shadow:0 0 0 1px rgba(217,180,91,.25),0 4px 14px -6px rgba(217,180,91,.4)}
+    html.premium .planos i{color:var(--gold2)}
+    html.premium .chrome::after{content:'';position:absolute;left:0;right:0;bottom:0;height:1.5px;
+      background:linear-gradient(90deg,transparent,var(--gold) 20%,var(--gold2) 50%,var(--gold) 80%,transparent);opacity:.9}
+    /* ── MODAL PLANOS ── */
+    .pl-back{position:fixed;inset:0;background:rgba(9,18,28,.62);backdrop-filter:blur(3px);display:none;place-items:center;z-index:80;padding:22px}
+    .pl-back.show{display:grid}
+    .pl-modal{background:#fff;border-radius:20px;width:100%;max-width:440px;max-height:92vh;overflow-y:auto;
+      box-shadow:0 40px 90px -30px rgba(9,18,28,.6);font-family:'Barlow'}
+    .pl-hero{background:var(--navy);color:#fff;padding:26px 26px 22px;border-radius:20px 20px 0 0;position:relative;overflow:hidden}
+    .pl-hero::after{content:'';position:absolute;left:0;right:0;bottom:0;height:2px;background:linear-gradient(90deg,var(--gold),var(--gold2),var(--gold))}
+    .pl-crown{width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,var(--gold2),var(--gold));display:grid;place-items:center;color:#3A2C05;font-size:20px}
+    .pl-hero h2{font-size:22px;font-weight:800;margin-top:14px;letter-spacing:-.3px}
+    .pl-price{display:flex;align-items:baseline;gap:6px;margin-top:6px}
+    .pl-price .v{font-size:34px;font-weight:800;color:var(--gold2)}
+    .pl-price .u{color:#8FA3B8;font-size:13px;font-weight:600}
+    .pl-body{padding:22px 26px 26px}
+    .pl-feat{display:flex;gap:11px;align-items:flex-start;margin-bottom:12px;font-size:14px}
+    .pl-feat i{color:var(--gold);margin-top:2px;font-size:13px;flex-shrink:0}
+    .pl-feat b{font-weight:700}
+    .pl-sec{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#8E9198;margin:20px 0 11px}
+    .pl-opt{display:flex;align-items:center;gap:12px;border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;margin-bottom:9px;position:relative}
+    .pl-opt.sel{border-color:var(--gold);background:rgba(240,212,136,.09)}
+    .pl-opt .radio{width:18px;height:18px;border-radius:50%;border:2px solid #CBD1D8;flex-shrink:0}
+    .pl-opt.sel .radio{border-color:var(--gold);background:radial-gradient(circle,var(--gold) 42%,transparent 46%)}
+    .pl-opt .info{flex:1;min-width:0}
+    .pl-opt .nm{font-weight:700;font-size:14.5px}
+    .pl-opt .dt{font-size:12px;color:#8E9198;margin-top:1px}
+    .pl-opt .pr{text-align:right;white-space:nowrap}
+    .pl-opt .pr b{font-size:17px;font-weight:800}
+    .pl-opt .pr small{display:block;font-size:11px;color:#8E9198}
+    .pl-opt .tagbest{position:absolute;top:-9px;right:12px;font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;background:linear-gradient(135deg,var(--gold2),var(--gold));color:#2B2205;padding:2px 8px;border-radius:20px}
+    /* Add-on Site: caixinha (check) em vez de radio */
+    .pl-addon .check{width:18px;height:18px;border-radius:5px;border:2px solid #CBD1D8;flex-shrink:0;display:grid;place-items:center;color:transparent;font-size:10px}
+    .pl-addon.sel .check{border-color:var(--gold);background:var(--gold);color:#3A2C05}
+    .tag-new{font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;background:var(--navy);color:#fff;padding:1px 7px;border-radius:20px;margin-left:6px;vertical-align:middle}
+    .mtile-site{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--gold2),var(--gold));color:#3A2C05;display:grid;place-items:center;font-size:15px;flex-shrink:0;margin-right:2px}
+    .pl-total{display:flex;align-items:baseline;justify-content:space-between;margin:14px 0 2px;padding-top:12px;border-top:1px solid var(--line)}
+    .pl-total span{font-size:13px;color:#8E9198;font-weight:600}
+    .pl-total b{font-size:22px;font-weight:800;color:var(--navy)}
+    .pl-total small{font-size:12px;font-weight:600;color:#8E9198;margin-left:1px}
+    .pl-buy{border:1.5px dashed #D8DDE2;border-radius:12px;padding:13px 15px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .pl-buy .nm{font-weight:700;font-size:14px}
+    .pl-buy .dt{font-size:12px;color:#8E9198;margin-top:1px}
+    .pl-buy .pr{font-size:17px;font-weight:800;white-space:nowrap;color:var(--navy)}
+    .pl-act{display:flex;align-items:center;gap:13px;border:1px solid var(--line);border-radius:12px;padding:13px 15px;text-decoration:none;color:#181A1F;margin-bottom:9px}
+    .pl-act:hover{border-color:var(--gold);background:rgba(240,212,136,.08)}
+    .pl-act .ai{width:40px;height:40px;border-radius:10px;background:var(--navy);color:#fff;display:grid;place-items:center;font-size:16px;flex-shrink:0}
+    .pl-act .at{flex:1;min-width:0}
+    .pl-act .at b{display:block;font-weight:700;font-size:14.5px}
+    .pl-act .at span{font-size:12.5px;color:#8E9198}
+    .pl-act .ar{color:#B9BCC2;font-size:14px}
+    .pl-act:hover .ar{color:var(--gold)}
+    .pl-cta{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;padding:14px;border:none;border-radius:12px;
+      background:linear-gradient(135deg,var(--gold2),var(--gold));color:#3A2C05;font-weight:800;font-size:15px;cursor:pointer;font-family:'Barlow';margin-top:6px}
+    .pl-cta:hover{filter:brightness(1.04)}
+    .pl-cta:disabled{opacity:.55;cursor:default;filter:none}
+    .pl-cta-outline{background:#fff;color:var(--navy);border:1.5px solid var(--line)}
+    .pl-cta-outline:hover{filter:none;border-color:var(--navy)}
+    .pl-checkout-msg{margin-top:10px;font-size:12.5px;color:#8E9198;text-align:center}
+    .pl-checkout-msg.err{color:#C0392B}
+    .pl-note{background:#F7F5F1;border-radius:12px;padding:14px 16px;margin-top:18px;font-size:12.5px;color:#5A5F66;line-height:1.5}
+    .pl-note b{color:#181A1F}
+    .pl-slogan{text-align:center;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+    .pl-slogan .s1{font-weight:800;font-size:15px;letter-spacing:-.2px}
+    .pl-slogan .s1 span{color:var(--accent)}
+    .pl-slogan .s2{color:#8E9198;font-size:12px;margin-top:3px}
+    .pl-contact{display:flex;gap:8px;margin-top:14px}
+    .pl-contact a{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px;border-radius:10px;
+      text-decoration:none;font-weight:700;font-size:13px;border:1px solid var(--line);color:#181A1F}
+    .pl-contact a.wa{background:#25D366;color:#fff;border-color:#25D366}
+    .pl-close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:8px;border:none;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;z-index:2}
+    .pl-tag{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+      background:rgba(240,212,136,.18);color:var(--gold2);padding:3px 10px;border-radius:20px}
+    .pl-active{display:flex;align-items:center;gap:9px;background:rgba(240,212,136,.14);border:1px solid rgba(217,180,91,.4);
+      color:#8A6D1E;border-radius:12px;padding:12px 14px;font-size:13.5px;font-weight:700;margin-bottom:16px}
+    .pl-promo{background:linear-gradient(135deg,#132539,#1B3350);color:#fff;border-radius:14px;padding:16px 18px;margin-top:18px}
+    .pl-promo .pt{font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--gold2)}
+    .pl-promo .pd{font-size:13px;margin-top:6px;line-height:1.5;color:#C8D4DF}
+    .pl-promo .pd b{color:#fff}
+    .pl-dev{margin-top:14px;display:flex;gap:6px;justify-content:center}
+    .pl-dev button{font-size:11px;padding:5px 10px;border-radius:7px;border:1px dashed var(--line);background:#fff;color:#8E9198;cursor:pointer;font-family:'Barlow'}
+    @media(max-width:640px){.logo-mini span{display:none}.tab span.tl{display:none}.tab{padding:9px 11px}.planos span{display:none}}
+  </style>
+</head>
+<body>
+  <header class="chrome">
+    <div class="logo-mini">
+      <img src="{% if arena.logo %}{{ url_for('uploaded_file', filename=arena.logo) }}{% else %}{{ url_for('static', filename='logo.png') }}{% endif %}" alt="">
+      <span>{{ arena.arena_name }}</span>
+    </div>
+    <div class="tabs" id="tabs">
+      <div class="tab home on" data-k="hub"><i class="fa-solid fa-house mi"></i> <span class="tl">Hub</span></div>
+    </div>
+    <button class="planos" id="btn-planos" title="Planos e assinatura">
+      <i class="fa-solid fa-crown"></i> <span id="planos-label">Planos</span>
+    </button>
+    <button class="add" id="btn-add" title="Abrir módulo"><i class="fa-solid fa-plus"></i></button>
+    <div class="user">
+      <span class="av">{% if user.photo %}<img src="{{ url_for('uploaded_file', filename=user.photo) }}" alt="">{% else %}<i class="fa-regular fa-user"></i>{% endif %}</span> {{ user.username }}
+      <a href="/logout" class="sair" title="Sair"><i class="fa-solid fa-right-from-bracket"></i></a>
+    </div>
+  </header>
+
+  <div class="frames" id="frames">
+    <iframe id="fr-hub" class="on" src="/hub"></iframe>
+  </div>
+
+  <div class="menu" id="menu"></div>
+
+  <!-- MODAL PLANOS -->
+  <div class="pl-back" id="pl-back">
+    <div class="pl-modal">
+      <div class="pl-hero">
+        <button class="pl-close" id="pl-close"><i class="fa-solid fa-xmark"></i></button>
+        <span class="pl-crown"><i class="fa-solid fa-crown"></i></span>
+        <div style="margin-top:12px"><span class="pl-tag">Planos e assinatura</span></div>
+        <h2>Arena AMP <span style="color:var(--gold2)">Premium</span></h2>
+        <p style="color:#8FA3B8;font-size:13.5px;margin-top:6px">Suporte prioritário e evolução contínua do seu sistema.</p>
+      </div>
+      <div class="pl-body" id="pl-body"><!-- preenchido via JS --></div>
+    </div>
+  </div>
+
+  <script>
+    var PLAN = {{ plan|tojson }};
+    var IS_DEV = {{ is_dev|tojson }};
+  </script>
+  <script>
+    // Módulos que ESTE usuário pode abrir (licença + permissão), vindos do servidor
+    var MODS = {{ shell_modules|tojson }};
+    var BY_KEY = {}; MODS.forEach(function(m){ BY_KEY[m.key] = m; });
+    // Assinatura abre como aba, mas não é um módulo licenciado (não vai no menu +).
+    BY_KEY['assinatura'] = {key:'assinatura', name:'Assinatura', icon:'fa-crown', url:'/assinatura'};
+
+    var $ = function(s,r){ return (r||document).querySelector(s); };
+    var $$ = function(s,r){ return Array.prototype.slice.call((r||document).querySelectorAll(s)); };
+
+    function activate(k){
+      $$('.tab').forEach(function(t){ t.classList.toggle('on', t.dataset.k===k); });
+      $$('.frames iframe').forEach(function(f){ f.classList.toggle('on', f.id==='fr-'+k); });
+    }
+    function wire(tab){
+      tab.addEventListener('click', function(e){
+        if (e.target.closest('.x')) { closeTab(tab); return; }
+        activate(tab.dataset.k);
+      });
+    }
+    function closeTab(tab){
+      var k = tab.dataset.k, wasOn = tab.classList.contains('on');
+      var fr = document.getElementById('fr-'+k);
+      tab.remove(); if (fr) fr.remove();
+      if (wasOn) activate('hub');
+    }
+    function openModule(k){
+      var m = BY_KEY[k];
+      if (!m) return;
+      if (document.getElementById('fr-'+k)) { activate(k); return; }
+      var tab = document.createElement('div');
+      tab.className = 'tab'; tab.dataset.k = k;
+      tab.innerHTML = '<i class="fa-solid '+m.icon+' mi"></i> <span class="tl">'+m.name+'</span> <span class="x"><i class="fa-solid fa-xmark"></i></span>';
+      $('#tabs').appendChild(tab); wire(tab);
+      var fr = document.createElement('iframe');
+      fr.id = 'fr-'+k; fr.src = m.url;
+      $('#frames').appendChild(fr);
+      activate(k);
+      tab.scrollIntoView({inline:'end'});
+    }
+    $$('.tab').forEach(wire);
+
+    // Hub (e módulos) pedem abertura via postMessage
+    window.addEventListener('message', function(ev){
+      var d = ev.data || {};
+      if (d.amp === 'open' && d.key) openModule(d.key);
+      if (d.amp === 'planos') openPlanos();
+    });
+
+    // menu +
+    var menu = $('#menu');
+    menu.innerHTML = MODS.length
+      ? MODS.map(function(m){ return '<button data-k="'+m.key+'"><i class="fa-solid '+m.icon+'"></i> '+m.name+'</button>'; }).join('')
+      : '<div class="none">Nenhum módulo disponível.</div>';
+    $$('#menu button').forEach(function(b){
+      b.addEventListener('click', function(){ menu.classList.remove('show'); openModule(b.dataset.k); });
+    });
+    $('#btn-add').addEventListener('click', function(e){
+      var r = e.currentTarget.getBoundingClientRect();
+      menu.style.top = (r.bottom + 6) + 'px';
+      menu.style.left = Math.max(8, r.right - 190) + 'px';
+      menu.classList.toggle('show');
+    });
+    document.addEventListener('click', function(e){
+      if (!e.target.closest('#btn-add') && !e.target.closest('#menu')) menu.classList.remove('show');
+    });
+
+    // ── PLANOS / PREMIUM ──
+    var wa = (PLAN.contato && PLAN.contato.whatsapp_link) || '#';
+    var email = (PLAN.contato && PLAN.contato.email) || '';
+    function applyPlan(){
+      var premium = PLAN.is_premium;
+      document.documentElement.classList.toggle('premium', premium);
+      var lbl = $('#planos-label');
+      if (premium) { lbl.textContent = 'Premium'; }
+      else if (PLAN.plan === 'demo') { lbl.textContent = 'Assinar'; }
+      else { lbl.textContent = 'Planos'; }
+    }
+    var PLANOS = {
+      mensal:     {nome:'Mensal',     mes:'R$ 80', baseMes:80, det:'Cobrado mensalmente',           msg:'no plano Mensal (R$ 80/mês)'},
+      trimestral: {nome:'Trimestral', mes:'R$ 76', baseMes:76, det:'R$ 228 a cada 3 meses · 5% off', msg:'no plano Trimestral (R$ 76/mês)', best:true},
+      comprar:    {nome:'Comprar o sistema', preco:'R$ 3.100', det:'Pagamento único — o sistema é seu', msg:'em comprar o sistema (R$ 3.100)'}
+    };
+    // Add-on Site profissional: R$/mês por ciclo (mensal cheio; trimestral 5% off).
+    var SITE_MES = {mensal:20, trimestral:19};
+    var selPlano = 'trimestral';
+    var selSite = false;
+    function waLink(msg){ return wa + '?text=' + encodeURIComponent('Olá! Tenho interesse ' + msg + ' do Arena AMP.'); }
+
+    function waText(t){ return wa + '?text=' + encodeURIComponent(t); }
+    function tailHTML(){
+      return '<div class="pl-promo"><div class="pt"><i class="fa-solid fa-gift"></i> Indique e ganhe</div>'
+          + '<div class="pd">Indique um cliente e, <b>enquanto ele for ativo</b>, você ganha <b>desconto na mensalidade</b>.</div></div>'
+        + '<div class="pl-slogan"><div class="s1">Transformamos sua <span>necessidade</span> em solução.</div>'
+          + '<div class="s2">Precisa de um sistema sob medida? O orçamento é <b>grátis</b>.</div>'
+          + '<div class="pl-contact"><a class="wa" href="' + wa + '" target="_blank"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>'
+          + '<a href="mailto:' + email + '"><i class="fa-regular fa-envelope"></i> E-mail</a></div></div>'
+        + (IS_DEV ? '<div class="pl-dev"><span style="align-self:center;color:#B9BCC2;font-size:11px">dev:</span>'
+            + '<button data-plan="free">free</button><button data-plan="demo">demo</button><button data-plan="premium">premium</button></div>' : '');
+    }
+    function act(icon, title, sub, href){
+      return '<a class="pl-act" href="' + href + '" target="_blank" rel="noopener">'
+        + '<span class="ai"><i class="fa-solid ' + icon + '"></i></span>'
+        + '<span class="at"><b>' + title + '</b><span>' + sub + '</span></span>'
+        + '<i class="fa-solid fa-arrow-right ar"></i></a>';
+    }
+    function premiumBodyHTML(){
+      // Cliente Premium: se ainda NÃO tem o site, oferece contratar avulso (ativa
+      // na hora, sem mexer no plano). Se já tem, mostra que está ativo.
+      var siteBlock;
+      if (PLAN.has_site) {
+        siteBlock = '<div class="pl-active" style="background:rgba(55,196,129,.12);border-color:rgba(55,196,129,.4);color:#2E7D57">'
+          + '<i class="fa-solid fa-globe"></i> Site profissional <b>ativo</b> na sua conta.</div>';
+      } else {
+        siteBlock = '<div class="pl-sec">Adicione ao seu plano</div>'
+          + '<div class="pl-opt" style="cursor:default">'
+          + '<span class="mtile-site"><i class="fa-solid fa-globe"></i></span>'
+          + '<div class="info"><div class="nm">Site profissional <span class="tag-new">Novo</span></div>'
+          + '<div class="dt">Site próprio, sob medida. Ativa na hora, junto do seu plano.</div></div>'
+          + '<div class="pr"><b>R$ 20</b><small>/mês</small></div></div>'
+          + '<button class="pl-cta" id="pl-site-buy" type="button"><i class="fa-regular fa-credit-card"></i> Contratar site agora</button>'
+          + '<div id="pl-checkout-msg" class="pl-checkout-msg" style="display:none"></div>';
+      }
+      return '<div class="pl-active"><i class="fa-solid fa-circle-check"></i> Sua assinatura Premium está ativa.</div>'
+        + siteBlock
+        + '<div class="pl-sec">Como podemos ajudar?</div>'
+        + act('fa-headset', 'Suporte prioritário', 'Tirar dúvidas ou reportar um problema.',
+              waText('Olá! Sou cliente Premium do Arena AMP e preciso de suporte.'))
+        + act('fa-sliders', 'Orçar uma alteração', 'Ajuste em um módulo que você já usa.',
+              waText('Olá! Sou cliente Premium do Arena AMP e quero orçar uma alteração em um módulo.'))
+        + act('fa-cubes-stacked', 'Criar um módulo novo', 'Um módulo novo sob medida para a arena.',
+              waText('Olá! Sou cliente Premium do Arena AMP e quero orçar a criação de um módulo novo.'))
+        + '<div class="pl-note"><b>Alterações e módulos novos</b> são orçados <b>sem custo</b> pelo WhatsApp.</div>'
+        + tailHTML();
+    }
+    function planBodyHTML(){
+      if (PLAN.is_premium) return premiumBodyHTML();
+
+      var demo = (PLAN.plan === 'demo' && PLAN.demo_days_left != null)
+        ? '<div class="pl-active" style="background:rgba(255,122,26,.12);border-color:rgba(255,122,26,.4);color:#B65A10"><i class="fa-solid fa-hourglass-half"></i> Período de teste — '
+            + PLAN.demo_days_left + ' dia(s) restante(s).</div>' : '';
+
+      function opt(id){
+        var p = PLANOS[id], on = selPlano === id;
+        return '<div class="pl-opt' + (on ? ' sel' : '') + '" data-plan="' + id + '">'
+          + (p.best ? '<span class="tagbest">Melhor valor</span>' : '')
+          + '<span class="radio"></span>'
+          + '<div class="info"><div class="nm">' + p.nome + '</div><div class="dt">' + p.det + '</div></div>'
+          + '<div class="pr"><b>' + p.mes + '</b><small>/mês</small></div></div>';
+      }
+      var assinaturas = '<div class="pl-sec">Assinatura</div>' + opt('mensal') + opt('trimestral');
+
+      // Add-on Site (só faz sentido pra assinatura, não pra compra única).
+      var addon = '';
+      if (selPlano !== 'comprar') {
+        addon = '<div class="pl-sec">Adicional</div>'
+          + '<div class="pl-opt pl-addon' + (selSite ? ' sel' : '') + '" id="pl-site-toggle">'
+          + '<span class="check"><i class="fa-solid fa-check"></i></span>'
+          + '<div class="info"><div class="nm">Site profissional <span class="tag-new">Novo</span></div>'
+          + '<div class="dt">Seu site sob medida — manutenção e atualizações grátis.</div></div>'
+          + '<div class="pr"><b>+R$ ' + SITE_MES[selPlano] + '</b><small>/mês</small></div></div>';
+      }
+
+      var comprar = '<div class="pl-sec">Ou compre o sistema</div>'
+        + '<div class="pl-opt' + (selPlano === 'comprar' ? ' sel' : '') + '" data-plan="comprar" style="border-style:dashed">'
+        + '<span class="radio"></span><div class="info"><div class="nm">Comprar o sistema</div><div class="dt">Pagamento único — o sistema é seu</div></div>'
+        + '<div class="pr"><b>R$ 3.100</b></div></div>';
+
+      var incluso = '<div class="pl-sec">Incluso</div>'
+        + '<div class="pl-feat"><i class="fa-solid fa-check"></i><div><b>Suporte prioritário</b> ao sistema.</div></div>'
+        + '<div class="pl-feat"><i class="fa-solid fa-check"></i><div>Todos os módulos liberados e <b>atualizações contínuas</b>.</div></div>';
+
+      var cta;
+      if (selPlano === 'comprar') {
+        cta = '<a class="pl-cta" id="pl-assinar" style="text-decoration:none" href="' + waLink(PLANOS[selPlano].msg) + '" target="_blank"><i class="fa-brands fa-whatsapp"></i> Quero comprar o sistema</a>';
+      } else {
+        var total = PLANOS[selPlano].baseMes + (selSite ? SITE_MES[selPlano] : 0);
+        cta = '<div class="pl-total"><span>Total</span><b>R$ ' + total + '<small>/mês</small></b></div>'
+          + '<button class="pl-cta" id="pl-pagar" type="button"><i class="fa-regular fa-credit-card"></i> Pagar agora</button>'
+          + '<div id="pl-checkout-msg" class="pl-checkout-msg" style="display:none"></div>';
+      }
+
+      return demo + assinaturas + addon + comprar + incluso + cta
+        + '<div class="pl-note">Precisa de uma <b>alteração</b> ou de um <b>módulo novo</b>? O orçamento é <b>grátis</b> pelo WhatsApp.</div>'
+        + tailHTML();
+    }
+    function checkoutMsg(txt, isError){
+      var el = $('#pl-checkout-msg');
+      if (!el) return;
+      el.style.display = 'block';
+      el.classList.toggle('err', !!isError);
+      el.textContent = txt;
+    }
+    function startCheckout(){
+      var btn = $('#pl-pagar');
+      if (btn) btn.disabled = true;
+      checkoutMsg('Abrindo pagamento…', false);
+      fetch('/api/checkout', {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({plan: selPlano, site: selSite})})
+        .then(function(r){ return r.json(); })
+        .then(function(res){
+          if (btn) btn.disabled = false;
+          if (res.checkout_url) { window.open(res.checkout_url, '_blank', 'noopener'); showVerifyBar(); }
+          else { checkoutMsg(res.error || 'Não foi possível iniciar o pagamento.', true); }
+        })
+        .catch(function(){
+          if (btn) btn.disabled = false;
+          checkoutMsg('Falha de conexão. Tente novamente.', true);
+        });
+    }
+    function startSiteCheckout(){
+      // Checkout AVULSO do site (cliente já é Premium e quer só adicionar o site).
+      var btn = $('#pl-site-buy');
+      if (btn) btn.disabled = true;
+      checkoutMsg('Abrindo pagamento do site…', false);
+      fetch('/api/checkout', {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({plan: 'site'})})
+        .then(function(r){ return r.json(); })
+        .then(function(res){
+          if (btn) btn.disabled = false;
+          if (res.checkout_url) { window.open(res.checkout_url, '_blank', 'noopener'); showVerifyBar(function(p){ return p.has_site; }); }
+          else { checkoutMsg(res.error || 'Não foi possível iniciar o pagamento.', true); }
+        })
+        .catch(function(){ if (btn) btn.disabled = false; checkoutMsg('Falha de conexão. Tente novamente.', true); });
+    }
+    function showVerifyBar(isDone){
+      isDone = isDone || function(p){ return p.is_premium; };
+      checkoutMsg('Pagamento aberto numa nova aba. Depois de pagar, clique abaixo.', false);
+      var msgEl = $('#pl-checkout-msg');
+      if (!msgEl || $('#pl-verify-btn')) return;
+      var btn = document.createElement('button');
+      btn.id = 'pl-verify-btn'; btn.type = 'button'; btn.className = 'pl-cta pl-cta-outline';
+      btn.style.marginTop = '10px';
+      btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Já paguei, verificar agora';
+      btn.addEventListener('click', function(){
+        btn.disabled = true; btn.innerHTML = 'Verificando…';
+        fetch('/api/checkout/verify', {method:'POST'}).then(function(r){ return r.json(); }).then(function(p){
+          if (isDone(p)) { location.reload(); return; }
+          btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Já paguei, verificar agora';
+          checkoutMsg('Ainda não identificamos o pagamento. Aguarde alguns segundos e tente de novo.', true);
+        }).catch(function(){
+          btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Já paguei, verificar agora';
+          checkoutMsg('Falha de conexão. Tente novamente.', true);
+        });
+      });
+      msgEl.parentNode.insertBefore(btn, msgEl.nextSibling);
+    }
+    function wirePlanBody(){
+      $$('#pl-body .pl-opt[data-plan]').forEach(function(o){
+        o.addEventListener('click', function(){ selPlano = o.dataset.plan; $('#pl-body').innerHTML = planBodyHTML(); wirePlanBody(); });
+      });
+      $$('#pl-body .pl-dev button').forEach(function(b){
+        b.addEventListener('click', function(){
+          fetch('/api/plan/dev', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({plan: b.dataset.plan})})
+            .then(function(r){ return r.json(); }).then(function(p){ PLAN = p; applyPlan(); $('#pl-body').innerHTML = planBodyHTML(); wirePlanBody(); });
+        });
+      });
+      var pagarBtn = $('#pl-pagar');
+      if (pagarBtn) {
+        pagarBtn.addEventListener('click', function(){ startCheckout(); });
+      }
+      var siteToggle = $('#pl-site-toggle');
+      if (siteToggle) {
+        siteToggle.addEventListener('click', function(){ selSite = !selSite; $('#pl-body').innerHTML = planBodyHTML(); wirePlanBody(); });
+      }
+      var siteBuy = $('#pl-site-buy');
+      if (siteBuy) {
+        siteBuy.addEventListener('click', function(){ startSiteCheckout(); });
+      }
+    }
+    function openPlanos(){
+      $('#pl-body').innerHTML = planBodyHTML();
+      $('#pl-back').classList.add('show');
+      wirePlanBody();
+    }
+    $('#btn-planos').addEventListener('click', openPlanos);
+    $('#pl-close').addEventListener('click', function(){ $('#pl-back').classList.remove('show'); });
+    $('#pl-back').addEventListener('click', function(e){ if (e.target.id === 'pl-back') $('#pl-back').classList.remove('show'); });
+    applyPlan();
+  </script>
+</body>
+</html>

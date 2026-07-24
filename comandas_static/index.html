@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comandas — Arena AMP</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <script>if (window.self !== window.top) document.documentElement.classList.add('in-shell');</script>
+  <!-- TOPBAR (pílula QUADRA — marca/usuário vivem no shell de abas) -->
+  <header class="topbar">
+    <div class="brand">
+      <img id="brand-logo" src="" alt="" style="display:none">
+      <span id="brand-name">Arena AMP</span>
+      <span class="sep">·</span><span class="mod">Comandas</span>
+    </div>
+    <a class="back standalone-only" href="/"><i class="fa-solid fa-arrow-left"></i> Hub</a>
+    <nav class="nav">
+      <button data-view="comandas" class="active"><i class="fa-solid fa-receipt"></i><span>Comandas</span></button>
+      <button data-view="estoque"><i class="fa-solid fa-box"></i><span>Estoque</span></button>
+      <button data-view="clientes"><i class="fa-solid fa-user-group"></i><span>Clientes</span></button>
+    </nav>
+  </header>
+
+  <!-- ══════════ COMANDAS ══════════ -->
+  <section class="page" id="view-comandas">
+    <div class="phead">
+      <div><h1>Comandas</h1><p id="cmd-sub">—</p></div>
+      <div class="actions">
+        <div class="search"><i class="fa-solid fa-magnifying-glass"></i>
+          <input class="inp" id="cmd-search" placeholder="Buscar cliente ou nº..." style="width:210px"></div>
+        <button class="btn btn-ghost" id="btn-fechar-caixa"><i class="fa-solid fa-cash-register"></i> Caixa</button>
+        <button class="btn btn-dark" id="btn-nova-comanda"><i class="fa-solid fa-plus"></i> Nova comanda</button>
+      </div>
+    </div>
+    <div class="board">
+      <div>
+        <div class="col-head"><span class="t">Em aberto</span><span class="t" id="cnt-abertas">0</span></div>
+        <div class="col-rule open"></div>
+        <div class="col-sub" id="sub-abertas"></div>
+        <div class="cmd-list" id="list-abertas"></div>
+      </div>
+      <div>
+        <div class="col-head"><span class="t">Pagas</span><span class="t" id="cnt-pagas">0</span></div>
+        <div class="col-rule paid"></div>
+        <div class="col-sub"></div>
+        <div class="cmd-list" id="list-pagas"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ ESTOQUE ══════════ -->
+  <section class="page hidden" id="view-estoque">
+    <div class="phead">
+      <div><h1>Estoque</h1><p id="est-sub">—</p></div>
+      <div class="actions">
+        <div class="seg" id="est-modo"><button data-modo="gestao" class="active">Gestão</button><button data-modo="consulta">Consulta</button></div>
+        <button class="btn btn-ghost" id="btn-categorias"><i class="fa-solid fa-tags"></i> Categorias</button>
+        <button class="btn btn-primary" id="btn-novo-produto"><i class="fa-solid fa-plus"></i> Novo produto</button>
+      </div>
+    </div>
+    <div class="search" style="max-width:340px;margin-bottom:16px"><i class="fa-solid fa-magnifying-glass"></i>
+      <input class="inp" id="est-search" placeholder="Buscar produto..."></div>
+    <div id="est-list"></div>
+  </section>
+
+  <!-- ══════════ CLIENTES ══════════ -->
+  <section class="page hidden" id="view-clientes">
+    <div class="phead">
+      <div><h1>Clientes</h1><p id="cli-sub">—</p></div>
+      <div class="actions">
+        <div class="search" style="width:250px"><i class="fa-solid fa-magnifying-glass"></i>
+          <input class="inp" id="cli-search" placeholder="Buscar cliente..."></div>
+        <button class="btn btn-primary" id="btn-novo-cliente"><i class="fa-solid fa-plus"></i> Novo cliente</button>
+      </div>
+    </div>
+    <div class="cli-grid" id="cli-list"></div>
+  </section>
+
+  <!-- OVERLAY + DRAWER (detalhe comanda) -->
+  <div class="overlay" id="overlay"></div>
+  <aside class="drawer" id="drawer"></aside>
+
+  <!-- Modal genérico -->
+  <div class="backdrop" id="modal-back">
+    <div class="modal" id="modal"><div class="modal-h" id="modal-title"></div><div class="modal-b" id="modal-body"></div></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

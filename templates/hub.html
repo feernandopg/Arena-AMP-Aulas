@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ arena.arena_name }} — Hub</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='logo.ico') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+      :root{--bg:#FBFAF8;--card:#FFFFFF;--navy:#132539;--ink:#181A1F;--muted:#8E9198;--faint:#B9BCC2;--line:#ECEAE6;--accent:{{ arena.accent }};--gold:#D9B45B;--gold2:#F0D488;--body:'Barlow',system-ui,sans-serif}
+      *{box-sizing:border-box;margin:0;font-family:var(--body);-webkit-tap-highlight-color:transparent}
+      body{background:var(--bg);color:var(--ink);min-height:100vh}
+      .wrap{max-width:1040px;margin:0 auto;padding:0 26px}
+      .hero{padding:42px 0 28px;display:grid;grid-template-columns:1.15fr 2fr;gap:14px;align-items:center}
+      .hero-left{min-width:0;align-self:center}
+      .hero-right{display:flex;flex-direction:column;gap:10px;justify-content:center}
+      .time{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-size:13px;font-weight:500}
+      .time i{font-size:15px;color:var(--accent)}
+      .greet{font-size:31px;font-weight:600;letter-spacing:-.4px;margin-top:12px;line-height:1.1}
+      .greet b{font-weight:800}
+      .sub{color:var(--muted);font-size:15px;margin-top:6px}
+      .cards{display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:14px;padding-bottom:44px}
+      /* ── Comandas: cartão alto em destaque (B1) ── */
+      .big{grid-row:1/3;background:var(--navy);border-radius:16px;padding:24px;color:#fff;display:flex;flex-direction:column;position:relative;overflow:hidden;cursor:pointer;text-decoration:none;transition:.15s}
+      .big:hover{transform:translateY(-2px);box-shadow:0 18px 40px -18px rgba(19,37,57,.55)}
+      .big::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent)}
+      .big .badge{font-size:9.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:14px}
+      .big .btile{width:50px;height:50px;border-radius:13px;background:var(--accent);display:grid;place-items:center;font-size:21px;color:#fff}
+      .big .bnm{font-size:22px;font-weight:800;margin-top:14px;letter-spacing:-.3px}
+      .big .bdesc{color:#8FA3B8;font-size:13.5px;margin-top:4px;line-height:1.4}
+      .big .bstats{margin-top:20px;display:flex;flex-direction:column;gap:10px}
+      .big .st{display:flex;justify-content:space-between;align-items:baseline;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)}
+      .big .st .l{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#8FA3B8}
+      .big .st .v{font-size:18px;font-weight:800;color:#fff}
+      .big .st .v em{font-style:normal;color:#FFB27A}
+      .big .go{margin-top:auto;padding-top:20px;display:flex;align-items:center;gap:9px;font-weight:700;font-size:14px;color:#fff}
+      .big .go i{color:var(--accent);transition:.15s}
+      .big:hover .go i{transform:translateX(4px)}
+      .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;min-height:128px;display:flex;flex-direction:column;position:relative;text-decoration:none;color:inherit;cursor:pointer}
+      .card.on{transition:border-color .15s,transform .15s,box-shadow .15s}
+      .card.on:hover{border-color:var(--navy);transform:translateY(-2px);box-shadow:0 10px 26px -14px rgba(19,37,57,.3)}
+      .tile{width:38px;height:38px;border-radius:10px;background:var(--navy);display:grid;place-items:center;color:#fff;font-size:16px}
+      .card.off{cursor:default}
+      .card.off .tile{background:#EDEBE7;color:var(--faint)}
+      .nm{font-size:17px;font-weight:700;margin-top:13px;letter-spacing:-.2px}
+      .card.off .nm{color:var(--faint)}
+      .desc{color:var(--muted);font-size:12.5px;margin-top:3px}
+      .arrow{position:absolute;top:20px;right:20px;color:var(--faint);font-size:15px;transition:color .15s}
+      .card.on:hover .arrow{color:var(--accent)}
+      .pill{position:absolute;top:18px;right:18px;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#fff;background:var(--navy);padding:3px 9px;border-radius:20px}
+      .card.off .pill{background:#EDEBE7;color:var(--muted)}
+      .foot{margin-top:auto;padding-top:12px;font-size:12px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:7px}
+      .dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+      /* ── Quadrante de 4 mini-cards (Assinatura, Site, Suporte, Configurações) ── */
+      .quad{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:10px;min-height:128px}
+      .mini{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;
+        flex-direction:column;gap:8px;text-decoration:none;color:inherit;position:relative;transition:border-color .15s,transform .15s,box-shadow .15s}
+      .mini:hover{border-color:var(--navy);transform:translateY(-2px);box-shadow:0 8px 20px -14px rgba(19,37,57,.3)}
+      .mini .mtile{width:26px;height:26px;border-radius:8px;background:var(--navy);display:grid;place-items:center;color:#fff;font-size:12px}
+      .mini .mtile-gold{background:linear-gradient(135deg,var(--gold2),var(--gold));color:#3A2C05}
+      .mini .mnm{font-size:12px;font-weight:700;letter-spacing:-.1px}
+      .mini .mdot{position:absolute;top:11px;right:11px;width:7px;height:7px;border-radius:50%}
+      /* ── Card promo do Site (quando o cliente ainda não tem site) ── */
+      .tile-gold{background:linear-gradient(135deg,var(--gold2),var(--gold))!important;color:#3A2C05!important}
+      .pill-gold{background:linear-gradient(135deg,var(--gold2),var(--gold))!important;color:#2B2205!important}
+      .foot-gold{color:#B0871E!important}
+      .site-promo:hover{border-color:var(--gold)!important}
+      .site-promo:hover .foot-gold i{transform:translateX(3px);transition:.15s}
+      /* ── Rodapé com assinatura do desenvolvedor ── */
+      .hub-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;
+        margin-top:8px;padding:16px 0 30px;border-top:1px solid var(--line)}
+      .hub-foot .hf-ver{color:var(--faint);font-size:11.5px;font-weight:500}
+      .hub-foot .hf-sig{color:var(--muted);font-size:11.5px;text-decoration:none;display:inline-flex;align-items:center;gap:5px}
+      .hub-foot .hf-sig b{color:var(--ink);font-weight:700}
+      .hub-foot .hf-sig i{font-size:9px;transition:transform .15s}
+      .hub-foot .hf-sig:hover{color:var(--ink)}
+      .hub-foot .hf-sig:hover i{transform:translateX(2px)}
+      /* ── Foco de teclado visível (acessibilidade) ── */
+      .card:focus-visible,.big:focus-visible,.mini:focus-visible,.hf-sig:focus-visible,.hub-promo-img:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+      /* ── Modais do Hub (propaganda do site + sobre) ── */
+      .hb-back{position:fixed;inset:0;background:rgba(12,25,40,.62);display:none;align-items:center;justify-content:center;
+        padding:22px;z-index:60}
+      .hb-back.show{display:flex}
+      .hb-modal{background:var(--card);border-radius:18px;width:min(440px,100%);max-height:92vh;overflow:auto;position:relative;
+        box-shadow:0 30px 70px -20px rgba(0,0,0,.55)}
+      .hb-close{position:absolute;top:12px;right:12px;z-index:2;width:30px;height:30px;border-radius:9px;border:none;cursor:pointer;
+        background:rgba(255,255,255,.14);color:#fff;font-size:14px}
+      .hb-close:hover{background:rgba(255,255,255,.24)}
+      /* propaganda do site */
+      .sm-hero{background:var(--navy);color:#fff;padding:26px 24px 22px;position:relative;overflow:hidden}
+      .sm-hero::before{content:'';position:absolute;inset:0;opacity:.5;pointer-events:none;
+        background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);
+        background-size:24px 24px;-webkit-mask-image:linear-gradient(160deg,#000,transparent);mask-image:linear-gradient(160deg,#000,transparent)}
+      .sm-badge{position:relative;display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+        color:#2B2205;background:linear-gradient(135deg,var(--gold2),var(--gold));padding:3px 10px;border-radius:20px}
+      .sm-hero h2{position:relative;font-size:22px;font-weight:800;letter-spacing:-.4px;line-height:1.15;margin-top:12px}
+      .sm-hero p{position:relative;color:#9FB0C0;font-size:13px;margin-top:6px;line-height:1.4}
+      .sm-body{padding:20px 22px 22px}
+      .sm-feats{display:flex;flex-direction:column;gap:13px}
+      .sm-feat{display:flex;gap:12px;align-items:flex-start}
+      .sm-feat .fi{width:34px;height:34px;border-radius:10px;background:rgba(240,212,136,.16);color:#B0871E;display:grid;place-items:center;font-size:14px;flex-shrink:0}
+      .sm-feat b{display:block;font-size:13.5px;font-weight:700;color:var(--ink)}
+      .sm-feat span{font-size:12px;color:var(--muted);line-height:1.35}
+      .sm-price{margin-top:18px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;background:#FCFBF8}
+      .sm-price .pl{display:block;font-size:11px;color:var(--muted);font-weight:600}
+      .sm-price .pv{font-size:24px;font-weight:800;color:var(--navy)}
+      .sm-price .pv small{font-size:12px;font-weight:600;color:var(--muted)}
+      .sm-price .pn{font-size:11px;color:var(--muted);text-align:right;max-width:150px;line-height:1.3}
+      .sm-cta{margin-top:16px;width:100%;padding:14px;border:none;border-radius:12px;cursor:pointer;font-family:var(--body);
+        background:linear-gradient(135deg,var(--gold2),var(--gold));color:#3A2C05;font-weight:800;font-size:14.5px;display:flex;align-items:center;justify-content:center;gap:9px}
+      .sm-cta:hover{filter:brightness(1.04)}
+      .sm-wa{margin-top:10px;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;
+        color:var(--muted);font-size:12.5px;font-weight:600;padding:8px}
+      .sm-wa:hover{color:var(--ink)}
+      /* sobre / assinatura */
+      .so-hero{background:var(--navy);padding:22px 22px 18px;display:flex;align-items:center;gap:13px;position:relative;overflow:hidden}
+      .so-hero::before{content:'';position:absolute;inset:0;opacity:.5;pointer-events:none;
+        background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);
+        background-size:22px 22px;-webkit-mask-image:linear-gradient(160deg,#000,transparent);mask-image:linear-gradient(160deg,#000,transparent)}
+      .so-logo{position:relative;width:44px;height:44px;border-radius:12px;background:var(--accent);display:grid;place-items:center;color:#fff;font-size:19px}
+      .so-nm{position:relative;color:#fff;font-size:17px;font-weight:800;letter-spacing:-.3px}
+      .so-sub{position:relative;color:#8FA3B8;font-size:11.5px}
+      .so-body{padding:20px 22px 22px}
+      .so-eye{font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+      .so-sign{font-family:'Caveat','Barlow',cursive;font-size:34px;color:var(--navy);line-height:1.05;margin-top:4px;transform:rotate(-2deg);transform-origin:left}
+      .so-rule{width:120px;height:2px;background:linear-gradient(90deg,var(--accent),transparent);margin-top:2px}
+      .so-rows{margin-top:16px;display:flex;flex-direction:column;gap:8px}
+      .so-row{display:flex;justify-content:space-between;align-items:center;text-decoration:none;font-size:12.5px;
+        padding:10px 12px;border:1px solid var(--line);border-radius:10px}
+      .so-row span{color:var(--muted)}
+      .so-row b{color:var(--ink);font-weight:700}
+      .so-row:hover{border-color:var(--navy)}
+      .so-foot{margin-top:16px;text-align:center;color:var(--faint);font-size:11px}
+      .hub-banner{display:flex;align-items:center;gap:11px;padding:12px 15px;border-radius:12px;
+        background:#132539;color:#fff;font-size:13px;font-weight:500;box-shadow:0 10px 26px -16px rgba(19,37,57,.5)}
+      .hub-banner i.fa-bullhorn{color:var(--accent);font-size:14px;flex-shrink:0}
+      .hub-banner span{flex:1}
+      .hub-banner button{background:none;border:none;color:#8FA3B8;cursor:pointer;font-size:14px;padding:4px;flex-shrink:0}
+      .hub-banner button:hover{color:#fff}
+      .hub-promos{position:relative;overflow:hidden;border-radius:14px}
+      .hub-promo-img{display:block;line-height:0;border-radius:14px;overflow:hidden;transition:opacity .15s}
+      .hub-promo-img:hover{opacity:.92}
+      .hub-promo-img img{width:100%;display:block;border-radius:14px}
+      .hub-demo,.hub-locked{display:flex;align-items:center;justify-content:space-between;gap:14px;
+        padding:13px 16px;border-radius:12px;text-decoration:none;font-size:13px;font-weight:600}
+      .hub-demo{background:#FFF6EE;border:1px solid #FBE0C8;color:#9A5A1A}
+      .hub-locked{background:#FBEDED;border:1px solid #F0D6D6;color:#B03A3A}
+      .hub-demo .cta,.hub-locked .cta{white-space:nowrap;display:inline-flex;align-items:center;gap:7px;font-weight:800}
+      .hub-demo:hover .cta,.hub-locked:hover .cta{text-decoration:underline}
+      @media(max-width:760px){.hero{grid-template-columns:1fr;gap:16px}
+        .hub-demo,.hub-locked{flex-direction:column;align-items:flex-start;gap:8px}}
+      @media(max-width:680px){.cards{grid-template-columns:1fr}.big{grid-row:auto}.greet{font-size:26px}.hero{padding:30px 0 22px}}
+    </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <div class="hero-left">
+        <span class="time"><i id="hub-celest" class="fa-solid fa-moon"></i> <span id="hub-date">—</span></span>
+        <div class="greet" id="hub-greet">Olá, <b>{{ user.username }}</b>.</div>
+        <div class="sub">Escolha um módulo para gerenciar.</div>
+      </div>
+      <div class="hero-right">
+        <div id="hub-banner" class="hub-banner" style="display:none">
+          <i class="fa-solid fa-bullhorn"></i><span id="hub-banner-txt"></span>
+          <button id="hub-banner-x" title="Dispensar"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        {% if plan.plan == 'demo' %}
+        <a class="hub-demo" id="hub-demo" href="#">
+          <span><i class="fa-solid fa-hourglass-half"></i> Você está no <b>período de teste</b>{% if plan.demo_days_left is not none %} — <b>{{ plan.demo_days_left }} dia(s)</b> restante(s){% endif %}.</span>
+          <span class="cta">Assinar agora <i class="fa-solid fa-arrow-right"></i></span>
+        </a>
+        {% endif %}
+        {% if not modules %}
+        <a class="hub-locked" id="hub-locked" href="#">
+          <span><i class="fa-solid fa-lock"></i> Seu acesso está <b>bloqueado</b>. Assine o Premium para liberar todos os módulos.</span>
+          <span class="cta">Ver planos <i class="fa-solid fa-arrow-right"></i></span>
+        </a>
+        {% endif %}
+        <div class="hub-promos" id="hub-promos" style="display:none" data-wa="{{ plan.contato.whatsapp_link }}">
+          <a class="hub-promo-img" id="promo-link" href="#" target="_blank" rel="noopener">
+            <img id="promo-img" src="" alt="Divulgação">
+          </a>
+        </div>
+      </div>
+    </div>
+    <div class="cards">
+      {% set com_ok = ('comandas' in modules) and (user.is_adm or user.can('comandas')) %}
+      {% if com_ok %}
+      <!-- COMANDAS: módulo principal em destaque -->
+      <a class="big" href="/comandas/" data-open="comandas">
+        <div class="badge">Módulo principal</div>
+        <div class="btile"><i class="fa-solid fa-receipt"></i></div>
+        <div class="bnm">Comandas</div>
+        <div class="bdesc">Consumo, vendas e fechamento de caixa da arena.</div>
+        <div class="bstats">
+          <div class="st"><span class="l">Em aberto</span><span class="v"><em id="cx-abertas">—</em></span></div>
+          <div class="st"><span class="l">Na mesa</span><span class="v" id="cx-mesa">—</span></div>
+          <div class="st"><span class="l">Recebido hoje</span><span class="v" id="cx-hoje">—</span></div>
+        </div>
+        <div class="go"><span id="cx-status">Abrir comandas</span> <i class="fa-solid fa-arrow-right"></i></div>
+      </a>
+      {% endif %}
+      {% set defs = [
+          {'key':'aulas','name':'Aulas','icon':'fa-users','desc':'Alunos, turmas, frequência e pagamentos.','url':'/aulas','built':true},
+          {'key':'ranking','name':'Ranking','icon':'fa-trophy','desc':'Jogadores, torneios e Painel TV ao vivo.','url':'/ranking/','built':true},
+          {'key':'relatorios','name':'Relatórios','icon':'fa-chart-line','desc':'Métricas, faturamento e relatórios da sua arena.','url':'/relatorios/','built':true}
+      ] %}
+      {% if not com_ok %}
+      <div class="card off">
+        <span class="tile"><i class="fa-solid fa-receipt"></i></span><span class="pill">Bloqueado</span>
+        <div class="nm">Comandas</div><div class="desc">Consumo, vendas e fechamento de caixa.</div>
+        {% if 'comandas' not in modules %}
+        <div class="foot"><i class="fa-solid fa-lock" style="font-size:10px"></i> Não incluído no plano</div>
+        {% else %}
+        <div class="foot"><i class="fa-solid fa-lock" style="font-size:10px"></i> Sem acesso para este usuário</div>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% for m in defs %}
+        {% set licensed = (m.key in modules) and (user.is_adm or user.can(m.key)) %}
+        {% if licensed and m.built %}
+        <a class="card on" href="{{ m.url }}" data-open="{{ m.key }}">
+          <span class="tile"><i class="fa-solid {{ m.icon }}"></i></span><span class="arrow"><i class="fa-solid fa-arrow-right"></i></span>
+          <div class="nm">{{ m.name }}</div><div class="desc">{{ m.desc }}</div>
+          <div class="foot"><span class="dot"></span> Ativo</div>
+        </a>
+        {% elif licensed and not m.built %}
+        <div class="card off">
+          <span class="tile"><i class="fa-solid {{ m.icon }}"></i></span><span class="pill">Em breve</span>
+          <div class="nm">{{ m.name }}</div><div class="desc">{{ m.desc }}</div>
+          <div class="foot">Em desenvolvimento</div>
+        </div>
+        {% else %}
+        <div class="card off">
+          <span class="tile"><i class="fa-solid {{ m.icon }}"></i></span><span class="pill">Bloqueado</span>
+          <div class="nm">{{ m.name }}</div><div class="desc">{{ m.desc }}</div>
+          {% if m.key not in modules %}
+          <div class="foot"><i class="fa-solid fa-lock" style="font-size:10px"></i> Não incluído no plano</div>
+          {% else %}
+          <div class="foot"><i class="fa-solid fa-lock" style="font-size:10px"></i> Sem acesso para este usuário</div>
+          {% endif %}
+        </div>
+        {% endif %}
+      {% endfor %}
+      {% set the_site = plan.site_url or site_url %}
+      <div class="quad">
+        {% if user.can('assinatura') %}
+        <a class="mini" href="/assinatura" data-open="assinatura">
+          <span class="mtile mtile-gold"><i class="fa-solid fa-crown"></i></span>
+          <span class="mnm">Assinatura</span>
+          {% if plan.is_premium %}<span class="mdot" style="background:#3B9A2B" title="Assinatura ativa"></span>
+          {% elif plan.is_demo %}<span class="mdot" style="background:var(--accent)" title="Período de teste"></span>
+          {% else %}<span class="mdot" style="background:var(--faint)" title="Sem assinatura ativa"></span>{% endif %}
+        </a>
+        {% endif %}
+        {% if plan.has_site and the_site %}
+        <a class="mini" href="{{ the_site }}" target="_blank" rel="noopener">
+          <span class="mtile"><i class="fa-solid fa-globe"></i></span>
+          <span class="mnm">Site</span>
+          <span class="mdot" style="background:#3B9A2B" title="Site no ar"></span>
+        </a>
+        {% else %}
+        <a class="mini site-promo" id="site-promo" href="#">
+          <span class="mtile mtile-gold"><i class="fa-solid fa-globe"></i></span>
+          <span class="mnm">Site</span>
+          <span class="mdot" style="background:var(--gold)" title="Conheça o site profissional"></span>
+        </a>
+        {% endif %}
+        <a class="mini" href="{{ plan.contato.whatsapp_link }}?text={{ 'Olá! Preciso de suporte no Arena AMP.'|urlencode }}" target="_blank" rel="noopener">
+          <span class="mtile"><i class="fa-solid fa-headset"></i></span>
+          <span class="mnm">Suporte</span>
+        </a>
+        {% if user.can('config') %}
+        <a class="mini" href="/configuracoes" data-open="config">
+          <span class="mtile"><i class="fa-solid fa-gear"></i></span>
+          <span class="mnm">Configurações</span>
+        </a>
+        {% endif %}
+      </div>
+    </div>
+
+    <footer class="hub-foot">
+      <span class="hf-ver">Arena AMP{% if app_version %} · v{{ app_version }}{% endif %}</span>
+      <a class="hf-sig" id="hub-sobre" href="#">Desenvolvido por <b>Fernando Godinho</b> <i class="fa-solid fa-chevron-right"></i></a>
+    </footer>
+  </div>
+
+  <!-- MODAL: propaganda do Site profissional -->
+  <div class="hb-back" id="site-back">
+    <div class="hb-modal site-modal">
+      <button class="hb-close" id="site-close"><i class="fa-solid fa-xmark"></i></button>
+      <div class="sm-hero">
+        <span class="sm-badge">Novo · Site profissional</span>
+        <h2>Sua arena com um site à altura dela.</h2>
+        <p>A gente cria, hospeda e cuida — você só aproveita os clientes chegando.</p>
+      </div>
+      <div class="sm-body">
+        <div class="sm-feats">
+          <div class="sm-feat"><span class="fi"><i class="fa-solid fa-wand-magic-sparkles"></i></span><div><b>Totalmente personalizado</b><span>Feito do seu jeito, com a cara da sua arena — não é template.</span></div></div>
+          <div class="sm-feat"><span class="fi"><i class="fa-solid fa-screwdriver-wrench"></i></span><div><b>Manutenção e atualização grátis</b><span>Direto com o desenvolvedor, sempre que precisar.</span></div></div>
+          <div class="sm-feat"><span class="fi"><i class="fa-solid fa-magnifying-glass-chart"></i></span><div><b>Aparecer no Google</b><span>Rankeamento (SEO) pra sua arena ser achada por quem procura.</span></div></div>
+          <div class="sm-feat"><span class="fi"><i class="fa-solid fa-tags"></i></span><div><b>Tags personalizadas</b><span>Meta tags e integrações prontas pra divulgação e anúncios.</span></div></div>
+          <div class="sm-feat"><span class="fi"><i class="fa-solid fa-chart-line"></i></span><div><b>Métricas de verdade</b><span>Veja quantas pessoas visitam e de onde vêm.</span></div></div>
+          <div class="sm-feat"><span class="fi"><i class="fa-solid fa-cookie-bite"></i></span><div><b>Cookies e LGPD</b><span>Aviso de cookies e conformidade, do jeito profissional.</span></div></div>
+        </div>
+        <div class="sm-price">
+          <div><span class="pl">A partir de</span><span class="pv">+R$ 20<small>/mês</small></span></div>
+          <span class="pn">Some ao seu plano atual. Cancele quando quiser.</span>
+        </div>
+        <button class="sm-cta" id="site-assinar"><i class="fa-solid fa-crown"></i> Adicionar à minha assinatura</button>
+        <a class="sm-wa" href="{{ plan.contato.whatsapp_link }}?text={{ 'Olá! Quero saber mais sobre o site profissional pra minha arena.'|urlencode }}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> Tirar dúvidas no WhatsApp</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: sobre / assinatura do desenvolvedor -->
+  <div class="hb-back" id="sobre-back">
+    <div class="hb-modal sobre-modal">
+      <button class="hb-close" id="sobre-close"><i class="fa-solid fa-xmark"></i></button>
+      <div class="so-hero">
+        <span class="so-logo"><i class="fa-solid fa-table-tennis-paddle-ball"></i></span>
+        <div><div class="so-nm">Arena AMP</div><div class="so-sub">Ecossistema de gestão para arenas</div></div>
+      </div>
+      <div class="so-body">
+        <div class="so-eye">Projetado e desenvolvido por</div>
+        <div class="so-sign">Fernando Godinho</div>
+        <div class="so-rule"></div>
+        <div class="so-rows">
+          <a class="so-row" href="{{ plan.contato.whatsapp_link }}" target="_blank" rel="noopener"><span><i class="fa-brands fa-whatsapp"></i> WhatsApp</span><b>{{ plan.contato.whatsapp }}</b></a>
+          <a class="so-row" href="mailto:{{ plan.contato.email }}"><span><i class="fa-regular fa-envelope"></i> E-mail</span><b>{{ plan.contato.email }}</b></a>
+        </div>
+        <div class="so-foot">Transformamos sua <b>necessidade</b> em solução.{% if app_version %} · v{{ app_version }}{% endif %}</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      var USER = {{ user.username|tojson }};
+      var now = new Date();
+      var dias = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
+      var meses = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+      var h = now.getHours();
+      var saud = h < 12 ? 'Bom dia' : (h < 18 ? 'Boa tarde' : 'Boa noite');
+      var isDay = (h >= 6 && h < 18);
+      document.getElementById('hub-date').textContent =
+        dias[now.getDay()] + ', ' + now.getDate() + ' de ' + meses[now.getMonth()] + ' de ' + now.getFullYear();
+      document.getElementById('hub-greet').innerHTML = saud + ', <b>' + USER + '</b>.';
+      document.getElementById('hub-celest').className = 'fa-solid ' + (isDay ? 'fa-sun' : 'fa-moon');
+
+      // Dentro do shell: cards abrem ABAS (postMessage); fora dele, navegam normal.
+      var inShell = (window.self !== window.top);
+      document.querySelectorAll('[data-open]').forEach(function(a){
+        a.addEventListener('click', function(e){
+          if (inShell) {
+            e.preventDefault();
+            window.parent.postMessage({ amp: 'open', key: a.dataset.open }, '*');
+          }
+        });
+      });
+
+      // CTA de demo/bloqueio → abre o modal Planos no shell
+      function askPlanos(e){ e.preventDefault(); if (inShell) window.parent.postMessage({ amp: 'planos' }, '*'); }
+      var hd = document.getElementById('hub-demo'); if (hd) hd.addEventListener('click', askPlanos);
+      var hl = document.getElementById('hub-locked'); if (hl) hl.addEventListener('click', askPlanos);
+
+      // Modais do Hub (propaganda do site + sobre o desenvolvedor)
+      function openModal(id){ var m = document.getElementById(id); if (m) m.classList.add('show'); }
+      function closeModal(id){ var m = document.getElementById(id); if (m) m.classList.remove('show'); }
+      function wireModal(backId, closeId){
+        var back = document.getElementById(backId);
+        if (!back) return;
+        var cl = document.getElementById(closeId); if (cl) cl.addEventListener('click', function(){ closeModal(backId); });
+        back.addEventListener('click', function(e){ if (e.target === back) closeModal(backId); });
+      }
+      wireModal('site-back', 'site-close');
+      wireModal('sobre-back', 'sobre-close');
+      document.addEventListener('keydown', function(e){ if (e.key === 'Escape'){ closeModal('site-back'); closeModal('sobre-back'); } });
+
+      var sp = document.getElementById('site-promo');
+      if (sp) sp.addEventListener('click', function(e){ e.preventDefault(); openModal('site-back'); });
+      var sa = document.getElementById('site-assinar');
+      if (sa) sa.addEventListener('click', function(){ closeModal('site-back'); if (inShell) window.parent.postMessage({ amp: 'planos' }, '*'); });
+      var sb = document.getElementById('hub-sobre');
+      if (sb) sb.addEventListener('click', function(e){ e.preventDefault(); openModal('sobre-back'); });
+
+      // Banner remoto (você controla no painel de licenças)
+      fetch('/api/banner').then(function(r){ return r.json(); }).then(function(d){
+        var txt = (d && d.banner || '').trim();
+        if (!txt) return;
+        if (sessionStorage.getItem('amp_banner_dismiss') === txt) return;
+        document.getElementById('hub-banner-txt').textContent = txt;
+        document.getElementById('hub-banner').style.display = 'flex';
+        document.getElementById('hub-banner-x').addEventListener('click', function(){
+          document.getElementById('hub-banner').style.display = 'none';
+          sessionStorage.setItem('amp_banner_dismiss', txt);
+        });
+      }).catch(function(){});
+
+      // Números reais do caixa no cartão Comandas
+      var fmt = function(v){ return 'R$ ' + (Number(v)||0).toFixed(2).replace('.', ','); };
+      function loadCaixa(){
+        if (!document.getElementById('cx-abertas')) return;
+        fetch('/comandas/api/caixa').then(function(r){ return r.json(); }).then(function(d){
+          document.getElementById('cx-abertas').textContent = d.em_aberto + (d.em_aberto === 1 ? ' comanda' : ' comandas');
+          document.getElementById('cx-mesa').textContent = fmt(d.na_mesa);
+          document.getElementById('cx-hoje').textContent = fmt(d.recebido_hoje);
+          document.getElementById('cx-status').textContent = d.aberto ? 'Abrir comandas' : 'Caixa fechado — abrir comandas';
+        }).catch(function(){});
+      }
+      loadCaixa();
+      // atualiza quando a aba do Hub volta a ficar visível no shell
+      document.addEventListener('visibilitychange', function(){ if (!document.hidden) loadCaixa(); });
+      window.addEventListener('focus', loadCaixa);
+
+      // Banner promocional (imagem), configurado no /admin — vale pra todos os produtos.
+      fetch('/api/promo').then(function(r){ return r.json(); }).then(function(p){
+        if (!p || !p.image_url) return;
+        var box = document.getElementById('hub-promos');
+        var wa = box.getAttribute('data-wa');
+        document.getElementById('promo-img').src = p.image_url;
+        document.getElementById('promo-link').href = wa + '?text=' + encodeURIComponent(p.wa_text || '');
+        box.style.display = '';
+      }).catch(function(){});
+    })();
+  </script>
+</body>
+</html>

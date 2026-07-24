@@ -1,8 +1,23 @@
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let studentsData = [];
 let classesData = [];
+let activityData = [];
 let repoFilter = false;
-let alertFilter = null; // 'overdue' | 'soon' | null
+let alertFilter = null;         // 'overdue' | 'soon' | null
+let activityFilter = 'tudo';
+
+const MONTHS_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+const CAT_LABEL = {
+    presenca: 'Presença', falta: 'Falta', reposicao: 'Reposição', pagamento: 'Pagamento',
+    aluno: 'Aluno', turma: 'Turma', matricula: 'Matrícula', exclusao: 'Exclusão', info: 'Sistema'
+};
+const FILTER_MAP = {
+    frequencia: ['presenca', 'falta', 'reposicao'],
+    pagamento: ['pagamento'],
+    aluno: ['aluno'],
+    turma: ['turma', 'matricula'],
+    exclusao: ['exclusao'],
+};
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -18,6 +33,11 @@ function setTodayDate() {
     if (paymentDateInput) paymentDateInput.value = today;
 }
 
+function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 // ─── AUTO-CALCULATE ───────────────────────────────────────────────────────────
 function autoCalculateStudentData() {
     const startInput = document.getElementById('startDate').value;
@@ -26,24 +46,19 @@ function autoCalculateStudentData() {
     const paymentDay = parseInt(document.getElementById('paymentDay').value) || 30;
 
     let months = 1;
-    if (plan === 'Mensal')      { months = 1; }
-    if (plan === 'Trimestral')  { months = 3; }
-    if (plan === 'Semestral')   { months = 6; }
+    if (plan === 'Mensal') months = 1;
+    if (plan === 'Trimestral') months = 3;
+    if (plan === 'Semestral') months = 6;
 
     const semanas = months * 4;
     document.getElementById('saldoAulas').value = aulasSemana * semanas;
 
     if (startInput) {
         const start = new Date(startInput + 'T12:00:00');
-
-        // End date
         const endObj = new Date(start);
         endObj.setMonth(endObj.getMonth() + months);
         document.getElementById('endDate').value = endObj.toISOString().split('T')[0];
-
-        // Next payment = next occurrence of the fixed day after start
-        const nextPay = computeNextPaymentJS(paymentDay, start);
-        document.getElementById('nextPayment').value = nextPay;
+        document.getElementById('nextPayment').value = computeNextPaymentJS(paymentDay, start);
     }
 }
 
@@ -72,6 +87,7 @@ async function loadAll() {
     await fetchClasses();
     await fetchStudents();
     await fetchAlerts();
+    await fetchActivity();
 }
 
 async function fetchClasses() {
@@ -99,12 +115,18 @@ async function fetchAlerts() {
         const soonEl = document.getElementById('countSoon');
         const overdueCard = document.getElementById('alertOverdueCard');
         const soonCard = document.getElementById('alertSoonCard');
-
         if (overdueEl) overdueEl.innerText = data.overdue.length;
         if (soonEl) soonEl.innerText = data.due_soon.length;
-
         if (overdueCard) overdueCard.style.display = data.overdue.length > 0 ? 'flex' : 'none';
         if (soonCard) soonCard.style.display = data.due_soon.length > 0 ? 'flex' : 'none';
+    } catch (e) { console.error(e); }
+}
+
+async function fetchActivity() {
+    try {
+        const res = await fetch('/api/activity');
+        activityData = await res.json();
+        renderActivity();
     } catch (e) { console.error(e); }
 }
 
@@ -120,18 +142,18 @@ function renderClassGrid() {
         if (classesToday.length > 0) {
             const col = document.createElement('div');
             col.className = 'day-column';
-            col.innerHTML = `<h3 style="color:#64748b; font-size:0.85rem; margin-bottom:8px; border-bottom:1px solid #eee; padding-bottom:5px;">${day}</h3>`;
+            col.innerHTML = `<h3>${day}</h3>`;
             classesToday.forEach(c => {
                 const percent = (c.student_count / c.capacity) * 100;
                 const isFull = c.student_count >= c.capacity;
-                const statusColor = isFull ? 'var(--danger)' : 'var(--success)';
+                const statusColor = isFull ? 'var(--danger)' : 'var(--lime)';
                 col.innerHTML += `
                 <div class="class-card" onclick="openClassDetails(${c.id})" style="cursor:pointer;">
                     <div class="btn-del-class" onclick="event.stopPropagation(); deleteClass(${c.id}, this)"><i class="fa-solid fa-trash"></i></div>
-                    <div class="class-header"><span class="class-time">${c.time}</span><span class="class-prof">${c.professor}</span></div>
+                    <div class="class-header"><span class="class-time">${esc(c.time)}</span><span class="class-prof">${esc(c.professor)}</span></div>
                     <div class="class-meta">
                         <span><i class="fa-solid fa-user-group"></i> ${c.student_count}/${c.capacity}</span>
-                        <span style="color:${statusColor}; font-weight:600; font-size:0.75rem">${isFull ? 'LOTADO' : 'DISPONÍVEL'}</span>
+                        <span style="color:${statusColor}; font-weight:700; font-size:0.72rem; font-family:var(--disp); letter-spacing:.5px;">${isFull ? 'LOTADO' : 'DISPONÍVEL'}</span>
                     </div>
                     <div class="progress-bar"><div class="progress-fill ${isFull ? 'full' : ''}" style="width:${Math.min(percent, 100)}%"></div></div>
                 </div>`;
@@ -141,101 +163,138 @@ function renderClassGrid() {
     });
 }
 
-// ─── RENDER STUDENT TABLE ─────────────────────────────────────────────────────
+// ─── RENDER STUDENT LIST ──────────────────────────────────────────────────────
 function renderStudentTable() {
-    const tbody = document.getElementById('studentTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = '';
-    let list = [...studentsData];
+    const list = document.getElementById('studentList');
+    if (!list) return;
+    list.innerHTML = '';
+    let arr = [...studentsData];
 
     const searchVal = document.getElementById('search')?.value?.toLowerCase();
-    if (searchVal) list = list.filter(s => s.name.toLowerCase().includes(searchVal));
-    if (repoFilter) list = list.filter(s => s.reposicoes_count > 0);
-    if (alertFilter === 'overdue') list = list.filter(s => s.payment_overdue);
-    if (alertFilter === 'soon') list = list.filter(s => s.payment_alert && !s.payment_overdue);
+    if (searchVal) arr = arr.filter(s => s.name.toLowerCase().includes(searchVal));
+    if (repoFilter) arr = arr.filter(s => s.reposicoes_count > 0);
+    if (alertFilter === 'overdue') arr = arr.filter(s => s.payment_overdue);
+    if (alertFilter === 'soon') arr = arr.filter(s => s.payment_alert && !s.payment_overdue);
 
-    list.sort((a, b) => (a.active === b.active) ? 0 : a.active ? -1 : 1);
+    arr.sort((a, b) => (a.active === b.active) ? 0 : a.active ? -1 : 1);
 
-    list.forEach(s => {
-        const opacityStyle = s.active ? '1' : '0.5';
-        const activeBadge = s.active ? '' : '<span style="background:#ef4444; color:white; font-size:0.6rem; padding:2px 5px; border-radius:4px; margin-left:5px;">INATIVO</span>';
+    if (arr.length === 0) {
+        list.innerHTML = '<div class="activity-empty">Nenhum aluno encontrado.</div>';
+        return;
+    }
 
-        // Payment status badge
-        let paymentBadge = '';
-        let rowBg = '';
-        if (s.payment_overdue) {
-            paymentBadge = '<span class="badge badge-danger">VENCIDO</span>';
-            rowBg = 'background: #fff5f5;';
-        } else if (s.payment_alert) {
-            paymentBadge = '<span class="badge badge-warning">⚠️ Vence em breve</span>';
-            rowBg = 'background: #fffbeb;';
+    arr.forEach(s => {
+        const rowClass = s.active ? (s.payment_overdue ? 'due' : '') : 'off';
+
+        let badges = '';
+        if (!s.active) badges += '<span class="badge badge-muted">Inativo</span>';
+        if (s.active && s.payment_overdue) badges += '<span class="badge badge-danger">Vencido</span>';
+        else if (s.active && s.payment_alert) badges += '<span class="badge badge-warning">Vence em breve</span>';
+        if (s.active && s.plan_expiring) badges += '<span class="badge badge-warning">Plano expirando</span>';
+
+        const repoLine = (s.reposicoes_count > 0 && s.active)
+            ? `<div class="st-repo"><i class="fa-solid fa-rotate"></i> ${s.reposicoes_count} reposição(ões) pendente(s)</div>` : '';
+
+        let payHtml;
+        if (s.active) {
+            const venceClass = s.payment_overdue ? 'over' : '';
+            const paidLine = s.lastPayment
+                ? `<small class="paid"><i class="fa-solid fa-check"></i> Pago ${formatDate(s.lastPayment)}</small>`
+                : '<small>Sem pagamento</small>';
+            payHtml = `
+                <b class="${venceClass}">Vence ${formatDate(s.nextPayment)}</b>
+                <small>todo dia ${s.paymentDay || 30}</small>
+                ${paidLine}
+                <button onclick="openPaymentModal(${s.id})" class="btn-pay" style="margin-top:6px;"><i class="fa-solid fa-money-bill-wave"></i> Registrar Pgto</button>`;
+        } else {
+            payHtml = '<b>—</b><small>contrato encerrado</small>';
         }
 
-        // Plan expiry
-        const planExpiryBadge = s.plan_expiring ? '<span class="badge badge-warning" style="margin-left:4px;">Plano expirando</span>' : '';
-
-        // Format price
+        const plusRepos = (s.reposicoes_count > 0) ? `<span class="plus">+${s.reposicoes_count} repos.</span>` : '';
         const priceFormatted = formatPrice(s.price);
 
-        // Payment info
-        const lastPayText = s.lastPayment
-            ? `<div style="font-size:0.75rem; color:#64748b; margin-top:2px;">Pago: ${formatDate(s.lastPayment)}</div>`
-            : '<div style="font-size:0.72rem; color:#cbd5e1; margin-top:2px;">Sem pagamento</div>';
-
-        const tr = document.createElement('tr');
-        tr.style.cssText = opacityStyle !== '1' ? `opacity:${opacityStyle}; ${rowBg}` : rowBg;
-        tr.innerHTML = `
-            <td>
-                <strong style="color:var(--dark)">${s.name}</strong>${activeBadge}
-                ${paymentBadge}${planExpiryBadge}
-                ${s.reposicoes_count > 0 && s.active ? `<span class="repo-alert">${s.reposicoes_count} reposição(ões) pendente(s)</span>` : ''}
-            </td>
-            <td>
-                <div style="font-size:0.85rem; color:#334155; font-weight:500">${s.classes_desc || '<span style="color:#94a3b8">Sem turma fixa</span>'}</div>
-                <div style="font-size:0.75rem; color:#64748b;">${s.plan} · ${s.classesPerWeek || 2}x/sem · <strong>${priceFormatted}</strong></div>
-            </td>
-            <td class="hide-mobile">
-                <div style="font-weight:bold; color:var(--dark); font-size:0.9rem;">
-                    Vence: ${formatDate(s.nextPayment)}
-                    ${s.paymentDay ? `<span style="font-size:0.72rem; color:#94a3b8; font-weight:400;"> (todo dia ${s.paymentDay})</span>` : ''}
+        const row = document.createElement('div');
+        row.className = 'st-row ' + rowClass;
+        row.innerHTML = `
+            <div class="st-info">
+                <div class="st-name">${esc(s.name)} ${badges}</div>
+                <div class="st-sub">${esc(s.classes_desc) || '<span style="color:#94A3B0">Sem turma fixa</span>'} &nbsp;·&nbsp; ${esc(s.plan)} · ${s.classesPerWeek || 2}x/sem · <b>${priceFormatted}</b></div>
+                ${repoLine}
+            </div>
+            <div class="st-pay">${payHtml}</div>
+            <div class="saldo-box"><em>SALDO</em><b>${s.credits || 0}</b>${plusRepos}</div>
+            <div class="st-actions">
+                <button class="btn-secondary" style="font-size:0.72rem; padding:7px 11px;" onclick="openActionModal(${s.id})"><i class="fa-solid fa-list-check"></i> Gerenciar</button>
+                <div class="icons">
+                    <button class="icon-btn ${s.active ? 'on' : ''}" title="${s.active ? 'Inativar' : 'Ativar'}" onclick="toggleStudentStatus(${s.id}, this)"><i class="fa-solid fa-toggle-${s.active ? 'on' : 'off'}"></i></button>
+                    <button class="icon-btn edit" onclick="editStudent(${s.id})"><i class="fa-solid fa-pen"></i></button>
+                    <button class="icon-btn del" onclick="deleteStudent(${s.id}, this)"><i class="fa-solid fa-trash"></i></button>
                 </div>
-                ${lastPayText}
-                <div style="font-size:0.72rem; color:#64748b; margin-top:2px;">
-                    ${s.startDate ? `Início: ${formatDate(s.startDate)}` : ''}
-                    ${s.endDate ? ` · Fim: ${formatDate(s.endDate)}` : ''}
-                </div>
-                <button onclick="openPaymentModal(${s.id})" class="btn-pay" style="margin-top:6px;">
-                    <i class="fa-solid fa-money-bill-wave"></i> Registrar Pgto
-                </button>
-            </td>
-            <td>
-                <div style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; padding:8px 12px; border-radius:6px; border:1px solid #e2e8f0;">
-                    <div>
-                        <div style="font-size:0.8rem; font-weight:bold; color:#475569;">Saldo: <span style="font-size:1rem; color:#16a34a;">${s.credits || 0}</span></div>
-                        ${s.reposicoes_count > 0 ? `<div style="font-size:0.75rem; color:#ef4444; font-weight:bold;">+${s.reposicoes_count} repos.</div>` : ''}
-                    </div>
-                    <button class="btn-primary" style="background:var(--dark); padding:6px 12px; font-size:0.8rem;" onclick="openActionModal(${s.id})">
-                        <i class="fa-solid fa-list-check"></i> Gerenciar
-                    </button>
-                </div>
-            </td>
-            <td style="text-align:right; min-width:90px;">
-                <button onclick="toggleStudentStatus(${s.id}, this)" title="${s.active ? 'Inativar' : 'Ativar'}" style="border:none; background:none; color:${s.active ? '#16a34a' : '#94a3b8'}; cursor:pointer; padding:5px; font-size:1.1rem;">
-                    <i class="fa-solid fa-toggle-${s.active ? 'on' : 'off'}"></i>
-                </button>
-                <button onclick="editStudent(${s.id})" style="border:none; background:none; color:var(--primary); cursor:pointer; padding:5px;">
-                    <i class="fa-solid fa-pen"></i>
-                </button>
-                <button onclick="deleteStudent(${s.id}, this)" style="border:none; background:none; color:#cbd5e1; cursor:pointer; padding:5px;">
-                    <i class="fa-solid fa-trash"></i>
-                </button>
-            </td>
-        `;
-        tbody.appendChild(tr);
+            </div>`;
+        list.appendChild(row);
     });
 }
 
-// ─── ACTION MODAL ─────────────────────────────────────────────────────────────
+// ─── ACTIVITY FEED ────────────────────────────────────────────────────────────
+function setActivityFilter(filter, el) {
+    activityFilter = filter;
+    document.querySelectorAll('#activityFilters .filter-chip').forEach(c => c.classList.remove('active'));
+    if (el) el.classList.add('active');
+    renderActivity();
+}
+
+function dayLabel(isoDate) {
+    const d = new Date(isoDate + 'T12:00:00');
+    const today = new Date(); today.setHours(12, 0, 0, 0);
+    const diff = Math.round((today - d) / 86400000);
+    const dm = `${String(d.getDate()).padStart(2, '0')} ${MONTHS_PT[d.getMonth()]}`;
+    if (diff === 0) return `Hoje · ${dm}`;
+    if (diff === 1) return `Ontem · ${dm}`;
+    return `${dm} ${d.getFullYear()}`;
+}
+
+function renderActivity() {
+    const feed = document.getElementById('activityFeed');
+    if (!feed) return;
+
+    let arr = [...activityData];
+    if (activityFilter !== 'tudo') {
+        const cats = FILTER_MAP[activityFilter] || [];
+        arr = arr.filter(a => cats.includes(a.category));
+    }
+
+    if (arr.length === 0) {
+        feed.innerHTML = '<div class="activity-empty">Nenhuma atividade registrada ainda.</div>';
+        return;
+    }
+
+    let html = '';
+    let lastDay = null;
+    arr.forEach(a => {
+        const dt = (a.datetime || '').split(' ');
+        const dayPart = dt[0] || '';
+        const timePart = (dt[1] || '').slice(0, 5);
+        const label = dayLabel(dayPart);
+        if (label !== lastDay) {
+            html += `<div class="day-label">${label}</div>`;
+            lastDay = label;
+        }
+        const cat = a.category || 'info';
+        const catLabel = CAT_LABEL[cat] || 'Sistema';
+        let desc = esc(a.description);
+        const dash = desc.indexOf(' — ');
+        if (dash > -1) desc = `<b>${desc.slice(0, dash)}</b>${desc.slice(dash)}`;
+        html += `
+            <div class="ev ${cat}">
+                <div class="ev-time">${timePart}</div>
+                <div><span class="ev-cat ${cat}">${catLabel}</span><span class="ev-desc">${desc}</span></div>
+                <div class="ev-user"><i class="fa-regular fa-user"></i> ${esc(a.user)}</div>
+            </div>`;
+    });
+    feed.innerHTML = html;
+}
+
+// ─── ACTION MODAL (frequência) ────────────────────────────────────────────────
 function openActionModal(id) {
     const s = studentsData.find(st => st.id === id);
     if (!s) return;
@@ -246,108 +305,71 @@ function openActionModal(id) {
 function renderActionModalContent(s) {
     const body = document.getElementById('actionModalBody');
 
-    let historyHtml = '<div style="text-align:center; padding:10px; color:#94a3b8; font-size:0.8rem;">Nenhum histórico ainda.</div>';
+    let historyHtml = '<div style="text-align:center; padding:10px; color:var(--muted); font-size:0.8rem;">Nenhum histórico ainda.</div>';
     if (s.history && s.history.length > 0) {
+        const dotColor = { presenca: 'var(--lime)', falta_aviso: 'var(--amber)', falta_sem_aviso: 'var(--danger)', usar_reposicao: 'var(--blue)', anular_reposicao: 'var(--muted)', pagamento: 'var(--primary)' };
         historyHtml = s.history.map(h => {
             const canUndo = ['presenca', 'falta_aviso', 'falta_sem_aviso', 'usar_reposicao', 'anular_reposicao'].includes(h.action_type);
             return `
-            <div style="border-bottom:1px solid #f1f5f9; padding:8px 0; display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+            <div class="he">
+                <div class="he-dot" style="background:${dotColor[h.action_type] || 'var(--muted)'}"></div>
                 <div style="flex:1;">
-                    <span style="font-size:0.7rem; color:#94a3b8; font-weight:bold; display:block;"><i class="fa-regular fa-clock"></i> ${h.date}</span>
-                    <span style="font-size:0.85rem; color:#334155;">${h.desc}</span>
+                    <div class="he-tm"><i class="fa-regular fa-clock"></i> ${esc(h.date)}</div>
+                    <div class="he-ds">${esc(h.desc)}</div>
                 </div>
-                ${canUndo ? `
-                <button onclick="undoHistoryEntry(${s.id}, ${h.id}, this)" title="Desfazer / Apagar este registro"
-                    style="flex-shrink:0; background:none; border:1px solid #fecaca; border-radius:6px; color:#ef4444; cursor:pointer; padding:4px 8px; font-size:0.75rem; transition:0.2s;"
-                    onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='none'">
-                    <i class="fa-solid fa-rotate-left"></i> Desfazer
-                </button>` : ''}
+                ${canUndo ? `<button class="he-undo" onclick="undoHistoryEntry(${s.id}, ${h.id}, this)"><i class="fa-solid fa-rotate-left"></i> Desfazer</button>` : ''}
             </div>`;
         }).join('');
     }
 
     const priceFormatted = formatPrice(s.price);
     const disabled = !s.active ? 'disabled' : '';
-    const disabledStyle = !s.active ? 'opacity:0.5; pointer-events:none;' : '';
+    const disabledCls = !s.active ? 'disabled' : '';
+
+    let alertHtml = '';
+    if (s.payment_overdue) alertHtml = `<div class="am-alert over">Pagamento VENCIDO desde ${formatDate(s.nextPayment)}</div>`;
+    else if (s.payment_alert) alertHtml = `<div class="am-alert soon">Pagamento vence em breve: ${formatDate(s.nextPayment)}</div>`;
+
+    const repoBlock = (s.reposicoes_count > 0) ? `
+        <button class="am-btn use" ${disabled} onclick="studentAction(this, ${s.id}, 'usar_reposicao')">
+            <span class="lf"><i class="fa-solid fa-hand-sparkles"></i> Usar Reposição</span>
+            <span class="am-pill">−1 REPOSIÇÃO</span>
+        </button>
+        <button class="am-btn void" ${disabled} onclick="studentAction(this, ${s.id}, 'anular_reposicao')">
+            <span class="lf"><i class="fa-solid fa-xmark"></i> Anular Reposição (falta na repos.)</span>
+        </button>` : '';
 
     body.innerHTML = `
-        <div style="text-align:center; margin-bottom:20px;">
-            <h4 style="color:var(--dark); font-size:1.2rem; margin-bottom:4px;">${s.name}</h4>
-            <span style="display:inline-block; background:#e2e8f0; color:#475569; padding:3px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">
-                ${s.plan} · ${s.classesPerWeek}x/sem · ${priceFormatted}
-            </span>
-            <div style="font-size:0.78rem; color:#64748b; margin-top:6px;">
-                📅 ${s.startDate ? formatDate(s.startDate) : '—'} → ${s.endDate ? formatDate(s.endDate) : '—'}
-                &nbsp;|&nbsp; Venc. todo dia <strong>${s.paymentDay || 30}</strong>
-            </div>
-            ${s.payment_overdue ? `<div style="background:#fef2f2; color:#b91c1c; border-radius:8px; padding:6px 10px; margin-top:8px; font-size:0.82rem; font-weight:600;">⚠️ Pagamento VENCIDO desde ${formatDate(s.nextPayment)}</div>` : ''}
-            ${s.payment_alert && !s.payment_overdue ? `<div style="background:#fff7ed; color:#c2410c; border-radius:8px; padding:6px 10px; margin-top:8px; font-size:0.82rem; font-weight:600;">🔔 Pagamento vence em breve: ${formatDate(s.nextPayment)}</div>` : ''}
+        <div class="am-who">
+            <h4>${esc(s.name)}</h4>
+            <div class="am-chip">${esc(s.plan)} · ${s.classesPerWeek}x/sem · ${priceFormatted}</div>
+            <div class="am-dates"><i class="fa-regular fa-calendar"></i> ${s.startDate ? formatDate(s.startDate) : '—'} → ${s.endDate ? formatDate(s.endDate) : '—'} &nbsp;|&nbsp; Venc. todo dia <strong>${s.paymentDay || 30}</strong></div>
+            ${alertHtml}
         </div>
-
-        <div style="display:flex; gap:10px; margin-bottom:20px;">
-            <div style="flex:1; text-align:center; background:#f0fdf4; padding:15px; border-radius:8px; border:1px solid #bbf7d0;">
-                <span style="display:block; font-size:0.8rem; color:#15803d; font-weight:bold; text-transform:uppercase;">Saldo de Aulas</span>
-                <strong style="font-size:2rem; color:#16a34a;">${s.credits || 0}</strong>
-            </div>
-            <div style="flex:1; text-align:center; background:${s.reposicoes_count > 0 ? '#fef2f2' : '#f8fafc'}; padding:15px; border-radius:8px; border:1px solid ${s.reposicoes_count > 0 ? '#fecaca' : '#e2e8f0'};">
-                <span style="display:block; font-size:0.8rem; color:${s.reposicoes_count > 0 ? '#b91c1c' : '#64748b'}; font-weight:bold; text-transform:uppercase;">Reposições</span>
-                <strong style="font-size:2rem; color:${s.reposicoes_count > 0 ? '#ef4444' : '#94a3b8'};">${s.reposicoes_count}</strong>
-            </div>
+        <div class="am-tiles">
+            <div class="am-tile g"><em>Saldo de Aulas</em><b>${s.credits || 0}</b></div>
+            <div class="am-tile ${s.reposicoes_count > 0 ? 'r' : 'n'}"><em>Reposições</em><b>${s.reposicoes_count}</b></div>
         </div>
-
-        <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px; ${disabledStyle}">
-
-            <button onclick="studentAction(this, ${s.id}, 'presenca')" ${disabled}
-                style="width:100%; background:#fff; border:1px solid #e2e8f0; padding:12px 15px; border-radius:8px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:0.2s;">
-                <div style="display:flex; align-items:center; gap:10px; color:#16a34a; font-weight:bold; font-size:0.95rem;">
-                    <i class="fa-solid fa-circle-check" style="font-size:1.2rem;"></i> Presença Normal
-                </div>
-                <span style="background:#dcfce7; color:#15803d; padding:3px 8px; border-radius:6px; font-size:0.75rem; font-weight:bold;">-1 Aula</span>
+        <div class="court-line"></div>
+        <div class="am-actions ${disabledCls}">
+            <button class="am-btn pres" ${disabled} onclick="studentAction(this, ${s.id}, 'presenca')">
+                <span class="lf"><i class="fa-solid fa-circle-check"></i> Presença Normal</span>
+                <span class="am-pill">−1 AULA</span>
             </button>
-
-            <button onclick="studentAction(this, ${s.id}, 'falta_com_reposicao')" ${disabled}
-                style="width:100%; background:#fff; border:1px solid #e2e8f0; padding:12px 15px; border-radius:8px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:0.2s;">
-                <div style="display:flex; align-items:center; gap:10px; color:#d97706; font-weight:bold; font-size:0.95rem;">
-                    <i class="fa-solid fa-user-clock" style="font-size:1.2rem;"></i> Falta com Aviso Prévio
-                </div>
-                <div style="text-align:right;">
-                    <span style="display:block; font-size:0.75rem; color:#64748b; font-weight:bold;">-1 Aula</span>
-                    <span style="display:block; font-size:0.75rem; color:#b91c1c; font-weight:bold;">+1 Reposição</span>
-                </div>
+            <button class="am-btn avi" ${disabled} onclick="studentAction(this, ${s.id}, 'falta_com_reposicao')">
+                <span class="lf"><i class="fa-solid fa-user-clock"></i> Falta com Aviso Prévio</span>
+                <span class="am-pill">−1 AULA<br>+1 REPOSIÇÃO</span>
             </button>
-
-            <button onclick="studentAction(this, ${s.id}, 'falta_sem_aviso')" ${disabled}
-                style="width:100%; background:#fff7ed; border:1px solid #fed7aa; padding:12px 15px; border-radius:8px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:0.2s;">
-                <div style="display:flex; align-items:center; gap:10px; color:#c2410c; font-weight:bold; font-size:0.95rem;">
-                    <i class="fa-solid fa-ban" style="font-size:1.2rem;"></i> Falta SEM Aviso Prévio
-                </div>
-                <span style="background:#fed7aa; color:#c2410c; padding:3px 8px; border-radius:6px; font-size:0.75rem; font-weight:bold;">Perde aula</span>
+            <button class="am-btn sem" ${disabled} onclick="studentAction(this, ${s.id}, 'falta_sem_aviso')">
+                <span class="lf"><i class="fa-solid fa-ban"></i> Falta sem Aviso Prévio</span>
+                <span class="am-pill">PERDE AULA</span>
             </button>
-
-            ${s.reposicoes_count > 0 ? `
-            <div style="height:1px; background:#e2e8f0; margin:5px 0;"></div>
-            <button onclick="studentAction(this, ${s.id}, 'usar_reposicao')" ${disabled}
-                style="width:100%; background:#e0f2fe; border:1px solid #bae6fd; padding:12px 15px; border-radius:8px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:0.2s;">
-                <div style="display:flex; align-items:center; gap:10px; color:#0369a1; font-weight:bold; font-size:0.95rem;">
-                    <i class="fa-solid fa-hand-sparkles" style="font-size:1.2rem;"></i> Usar Reposição
-                </div>
-                <span style="background:#bae6fd; color:#0369a1; padding:3px 8px; border-radius:6px; font-size:0.75rem; font-weight:bold;">-1 Reposição</span>
-            </button>
-            <button onclick="studentAction(this, ${s.id}, 'anular_reposicao')" ${disabled}
-                style="width:100%; background:#f1f5f9; border:1px solid #cbd5e1; padding:10px 15px; border-radius:8px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:0.2s;">
-                <div style="display:flex; align-items:center; gap:10px; color:#64748b; font-weight:bold; font-size:0.9rem;">
-                    <i class="fa-solid fa-xmark" style="font-size:1.1rem;"></i> Anular Reposição (falta na repos.)
-                </div>
-            </button>` : ''}
+            ${repoBlock}
         </div>
-
-        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px;">
-            <h5 style="color:#475569; margin-bottom:8px; font-size:0.85rem;"><i class="fa-solid fa-clock-rotate-left"></i> Histórico do Aluno</h5>
-            <div style="max-height:200px; overflow-y:auto; padding-right:4px;">
-                ${historyHtml}
-            </div>
-        </div>
-    `;
+        <div class="am-hist">
+            <div class="am-hist-title"><i class="fa-solid fa-clock-rotate-left"></i> Histórico do Aluno</div>
+            <div class="hist-scroll">${historyHtml}</div>
+        </div>`;
 }
 
 // ─── UNDO HISTORY ENTRY ───────────────────────────────────────────────────────
@@ -385,15 +407,12 @@ async function confirmPayment() {
     const amount = document.getElementById('paymentAmount').value;
     const date = document.getElementById('paymentDate').value;
     if (!id || !date) return;
-
     const btn = document.querySelector('#modalPayment .btn-primary');
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';
     btn.disabled = true;
-
     try {
         await fetch(`/api/students/${id}/register_payment`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ paymentDate: date, amount: amount })
         });
         closeModals();
@@ -401,7 +420,7 @@ async function confirmPayment() {
     } catch (e) {
         alert('Erro ao registrar pagamento.');
     } finally {
-        btn.innerHTML = 'Confirmar Pagamento';
+        btn.innerHTML = 'Confirmar';
         btn.disabled = false;
     }
 }
@@ -414,6 +433,7 @@ async function toggleStudentStatus(id, btnElement) {
         await fetch(`/api/students/${id}/toggle_status`, { method: 'POST' });
         await fetchStudents();
         await fetchAlerts();
+        await fetchActivity();
     } catch (e) {
         alert('Erro ao alterar status!');
         btnElement.disabled = false;
@@ -426,15 +446,14 @@ async function studentAction(btnElement, id, actionStr) {
     if (isProcessingAction) return;
     isProcessingAction = true;
     const originalContent = btnElement.innerHTML;
-    btnElement.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processando...';
     btnElement.style.opacity = '0.5';
     try {
         await fetch(`/api/students/${id}/action`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: actionStr })
         });
         await fetchStudents();
+        await fetchActivity();
         const updatedStudent = studentsData.find(st => st.id === id);
         if (updatedStudent && document.getElementById('modalActions').style.display === 'flex') {
             renderActionModalContent(updatedStudent);
@@ -452,9 +471,7 @@ async function studentAction(btnElement, id, actionStr) {
 function editStudent(id) {
     const student = studentsData.find(s => s.id === id);
     if (!student) return;
-
     openStudentModal();
-
     document.getElementById('studentId').value = student.id;
     document.getElementById('name').value = student.name;
     document.getElementById('plan').value = student.plan;
@@ -465,12 +482,8 @@ function editStudent(id) {
     document.getElementById('lastPayment').value = student.lastPayment || '';
     document.getElementById('nextPayment').value = student.nextPayment || '';
     document.getElementById('saldoAulas').value = student.credits || 0;
-    if (document.getElementById('paymentDay')) {
-        document.getElementById('paymentDay').value = student.paymentDay || 30;
-    }
-
+    if (document.getElementById('paymentDay')) document.getElementById('paymentDay').value = student.paymentDay || 30;
     document.getElementById('studentModalTitle').innerText = 'Editar Aluno';
-
     if (student.class_ids) {
         student.class_ids.forEach(clsId => {
             const cb = document.querySelector(`input[name="selectedClasses"][value="${clsId}"]`);
@@ -483,7 +496,6 @@ function editStudent(id) {
 function openStudentModal() {
     const container = document.getElementById('classSelector');
     container.innerHTML = '';
-
     document.getElementById('studentId').value = '';
     document.getElementById('studentModalTitle').innerText = 'Novo Aluno';
     document.getElementById('studentForm').reset();
@@ -491,24 +503,22 @@ function openStudentModal() {
 
     const daysOrder = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
     const sortedClasses = [...classesData].sort((a, b) =>
-        daysOrder.indexOf(a.day) - daysOrder.indexOf(b.day) || a.time.localeCompare(b.time)
-    );
+        daysOrder.indexOf(a.day) - daysOrder.indexOf(b.day) || a.time.localeCompare(b.time));
 
     sortedClasses.forEach(c => {
         const isFull = c.student_count >= c.capacity;
         const statusText = isFull
-            ? `<span style="color:red; font-weight:bold">(${c.student_count}/${c.capacity} LOTADO)</span>`
+            ? `<span style="color:var(--danger); font-weight:bold">(${c.student_count}/${c.capacity} LOTADO)</span>`
             : `(${c.student_count}/${c.capacity})`;
         container.innerHTML += `
-            <label class="check-item" style="${isFull ? 'background:#fff1f2' : ''}">
+            <label class="check-item" style="${isFull ? 'background:#FEF6F4' : ''}">
                 <input type="checkbox" value="${c.id}" name="selectedClasses" onchange="enforceClassLimit(this)">
                 <div>
-                    <span style="font-weight:600; font-size:0.8rem">${c.day} - ${c.time}</span>
-                    <div style="font-size:0.75rem; color:#64748b">${c.professor} ${statusText}</div>
+                    <span style="font-weight:700; font-size:0.8rem">${esc(c.day)} - ${esc(c.time)}</span>
+                    <div style="font-size:0.73rem; color:var(--muted)">${esc(c.professor)} ${statusText}</div>
                 </div>
             </label>`;
     });
-
     document.getElementById('modalStudent').style.display = 'flex';
 }
 
@@ -527,16 +537,14 @@ function renderEnrolledList(cls) {
     const list = document.getElementById('enrolledList');
     list.innerHTML = '';
     if (!cls.students || cls.students.length === 0) {
-        list.innerHTML = '<div style="color:#94a3b8; font-size:0.85rem; text-align:center; padding:10px;">Nenhum aluno.</div>';
+        list.innerHTML = '<div style="color:var(--muted); font-size:0.85rem; text-align:center; padding:12px;">Nenhum aluno.</div>';
         return;
     }
     cls.students.forEach(s => {
         list.innerHTML += `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid #eee;">
-                <span style="font-weight:600;">${s.name}</span>
-                <button onclick="removeStudentFromClass(${s.id}, this)" style="color:#ef4444; background:none; border:none; cursor:pointer;">
-                    <i class="fa-solid fa-user-minus"></i>
-                </button>
+            <div class="enrolled-item">
+                <span style="font-weight:600;">${esc(s.name)}</span>
+                <button onclick="removeStudentFromClass(${s.id}, this)" style="color:var(--danger); background:none; border:none; cursor:pointer; font-size:1rem;"><i class="fa-solid fa-user-minus"></i></button>
             </div>`;
     });
 }
@@ -546,8 +554,7 @@ function renderStudentSelect(cls) {
     select.innerHTML = '<option value="">Selecione um aluno...</option>';
     const enrolledIds = cls.students ? cls.students.map(s => s.id) : [];
     [...studentsData].sort((a, b) => a.name.localeCompare(b.name)).forEach(s => {
-        if (!enrolledIds.includes(s.id))
-            select.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+        if (!enrolledIds.includes(s.id)) select.innerHTML += `<option value="${s.id}">${esc(s.name)}</option>`;
     });
 }
 
@@ -559,8 +566,6 @@ document.getElementById('studentForm').addEventListener('submit', async (e) => {
     const originalBtnText = submitBtn.innerHTML;
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';
-    submitBtn.style.opacity = '0.7';
-
     try {
         const id = document.getElementById('studentId').value;
         const isEdit = !!id;
@@ -570,7 +575,6 @@ document.getElementById('studentForm').addEventListener('submit', async (e) => {
         const plan = document.getElementById('plan').value;
         const paymentDay = parseInt(document.getElementById('paymentDay').value) || 30;
 
-        // Calculate end date if not set
         let endDate = endInput;
         if (!endDate) {
             const start = new Date(startInput + 'T12:00:00');
@@ -581,19 +585,14 @@ document.getElementById('studentForm').addEventListener('submit', async (e) => {
         }
 
         const data = {
-            name: document.getElementById('name').value,
-            plan,
+            name: document.getElementById('name').value, plan,
             price: document.getElementById('price').value,
-            startDate: startInput,
-            endDate,
-            paymentDay,
+            startDate: startInput, endDate, paymentDay,
             nextPayment: document.getElementById('nextPayment').value,
             lastPayment: document.getElementById('lastPayment').value,
             classesPerWeek: document.getElementById('classesPerWeek').value,
-            saldoAulas: document.getElementById('saldoAulas').value,
-            classIds
+            saldoAulas: document.getElementById('saldoAulas').value, classIds
         };
-
         const url = isEdit ? `/api/students/${id}/update` : '/api/students';
         const method = isEdit ? 'PUT' : 'POST';
         await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
@@ -606,7 +605,6 @@ document.getElementById('studentForm').addEventListener('submit', async (e) => {
     } finally {
         submitBtn.disabled = false;
         submitBtn.innerHTML = originalBtnText;
-        submitBtn.style.opacity = '1';
     }
 });
 
@@ -617,7 +615,6 @@ document.getElementById('classForm').addEventListener('submit', async (e) => {
     submitBtn.disabled = true;
     const orig = submitBtn.innerHTML;
     submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Criando...';
-    submitBtn.style.opacity = '0.7';
     try {
         const data = {
             day: document.getElementById('classDay').value,
@@ -628,13 +625,13 @@ document.getElementById('classForm').addEventListener('submit', async (e) => {
         await fetch('/api/classes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
         closeModals();
         await fetchClasses();
+        await fetchActivity();
         e.target.reset();
     } catch (error) {
         alert('Erro ao criar turma.');
     } finally {
         submitBtn.disabled = false;
         submitBtn.innerHTML = orig;
-        submitBtn.style.opacity = '1';
     }
 });
 
@@ -701,32 +698,35 @@ function switchTab(tab) {
     if (target) target.classList.add('active');
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.classList.remove('active');
-        if (btn.getAttribute('onclick')?.includes(tab)) btn.classList.add('active');
+        if (btn.getAttribute('onclick')?.includes(`'${tab}'`)) btn.classList.add('active');
     });
+    if (tab === 'activity') fetchActivity();
+    if (window.innerWidth <= 820) document.getElementById('sidebar')?.classList.remove('active');
 }
 
 function toggleRepoFilter() {
     repoFilter = !repoFilter;
     alertFilter = null;
-    const card = document.getElementById('repoFilterCard');
-    card.style.border = repoFilter ? '2px solid var(--primary)' : '1px solid transparent';
-    card.style.background = repoFilter ? '#fff7ed' : 'var(--light)';
+    document.getElementById('repoFilterCard').style.outline = repoFilter ? '2px solid var(--primary)' : 'none';
+    clearAlertOutlines();
     switchTab('students');
     renderStudentTable();
+}
+
+function clearAlertOutlines() {
+    ['alertOverdueCard', 'alertSoonCard'].forEach(t => {
+        const c = document.getElementById(t);
+        if (c) c.style.outline = 'none';
+    });
 }
 
 function toggleAlertFilter(type) {
     alertFilter = alertFilter === type ? null : type;
     repoFilter = false;
-    const repoCard = document.getElementById('repoFilterCard');
-    repoCard.style.border = '1px solid transparent';
-    repoCard.style.background = 'var(--light)';
-    ['overdue', 'soon'].forEach(t => {
-        const card = document.getElementById(t === 'overdue' ? 'alertOverdueCard' : 'alertSoonCard');
-        if (card) {
-            card.style.outline = alertFilter === t ? '2px solid #ef4444' : 'none';
-        }
-    });
+    document.getElementById('repoFilterCard').style.outline = 'none';
+    clearAlertOutlines();
+    const card = document.getElementById(type === 'overdue' ? 'alertOverdueCard' : 'alertSoonCard');
+    if (card && alertFilter === type) card.style.outline = '2px solid var(--primary)';
     switchTab('students');
     renderStudentTable();
 }
@@ -736,6 +736,11 @@ function updateStats() {
     const totalRepos = studentsData.reduce((acc, s) => acc + (s.reposicoes_count || 0), 0);
     const el = document.getElementById('totalReposicoes');
     if (el) el.innerText = totalRepos;
+    const sub = document.getElementById('studentsSub');
+    if (sub) {
+        const ativos = studentsData.filter(s => s.active).length;
+        sub.innerText = `${ativos} ativo(s) · ${totalRepos} reposição(ões) pendente(s)`;
+    }
 }
 
 function formatDate(d) {

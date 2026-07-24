@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arena AMP - Gerenciador de Torneios</title>
+    <link rel="icon" type="image/png" href="logo.png?v=favicon">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    
+    <link rel="stylesheet" href="style.css?v=4">
+</head>
+<body>
+    <script>if (window.self !== window.top) document.documentElement.classList.add('in-shell');</script>
+    <style>html.in-shell .standalone-only{display:none!important}</style>
+    <div id="toast-container"></div>
+
+    <div id="login-gate" class="login-gate hidden" aria-hidden="true">
+        <div class="login-card">
+            <div class="login-brand">
+                <img src="logo.png?v=login" alt="" width="48" height="48">
+                <div>
+                    <span class="login-brand-title">ARENA <strong>AMP</strong></span>
+                    <p class="login-brand-sub">Acesso ao painel</p>
+                </div>
+            </div>
+            <form id="login-form" class="login-form">
+                <label class="form-label full-width">
+                    <span>Usuário</span>
+                    <input type="text" id="login-username" name="username" autocomplete="username" required>
+                </label>
+                <label class="form-label full-width">
+                    <span>Senha</span>
+                    <input type="password" id="login-password" name="password" autocomplete="current-password" required>
+                </label>
+                <p id="login-error" class="login-error" role="alert"></p>
+                <button type="submit" class="btn btn-primary btn-large login-submit">
+                    <i class="fas fa-right-to-bracket"></i> Entrar
+                </button>
+            </form>
+            <p class="login-hint">Novos usuários são criados pelo administrador (ícone de engrenagem), não por esta tela.</p>
+        </div>
+    </div>
+
+    <div class="app-shell">
+        <header class="top-nav">
+            <div class="nav-logo">
+                <a href="/" class="btn btn-ghost standalone-only" title="Voltar ao Hub" style="margin-right:6px"><i class="fas fa-arrow-left"></i></a>
+                <img src="logo.png?v=999" alt="Logo Arena AMP" style="width: 36px; height: 36px; object-fit: contain; flex-shrink: 0;">
+                <span class="logo-text">ARENA <strong>AMP</strong></span>
+            </div>
+
+            <div class="nav-actions">
+                <button id="nav-cancelar-torneio-btn" class="btn btn-danger-ghost hidden" title="Cancelar e apagar torneio atual">
+                    <i class="fas fa-ban"></i> <span>Cancelar Torneio</span>
+                </button>
+                <button id="nav-tela-cheia-btn" class="btn btn-ghost" title="Abrir painel ao vivo para TV">
+                    <i class="fas fa-tv"></i> <span>Painel TV</span>
+                </button>
+                <button id="nav-lista-jogadores-btn" class="btn btn-ghost">
+                    <i class="fas fa-users-viewfinder"></i> <span>Jogadores</span>
+                </button>
+                <button id="nav-novo-jogador-btn" class="btn btn-primary">
+                    <i class="fas fa-user-plus"></i> <span>Novo Jogador</span>
+                </button>
+
+                <div class="theme-switcher" title="Alternar Tema">
+                    <label class="switch">
+                        <input type="checkbox" id="theme-toggle" aria-label="Alternar tema claro e escuro">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <section class="torneio-container">
+                
+                <div id="camp-step-config" class="camp-step">
+                    <div class="panel-header">
+                        <div>
+                            <h1 class="panel-title">Novo Torneio</h1>
+                            <p class="panel-subtitle">Sistema AMP — Sorteio de Duplas Rotativas</p>
+                        </div>
+                    </div>
+                    
+                    <div class="camp-config-card">
+                        <div class="camp-players-setup">
+                            <div class="camp-players-header">
+                                <div style="display:flex;align-items:center;gap:10px">
+                                    <span class="camp-section-label" style="margin:0">Escalação do Dia</span>
+                                    <span id="camp-player-count" class="camp-count-badge">0/12</span>
+                                </div>
+                                <div class="filtros-torneio">
+                                    <select id="camp-modalidade" class="camp-select-sm">
+                                        <option value="Masculina">Masculino</option>
+                                        <option value="Feminina">Feminino</option>
+                                        <option value="Mista">Mista</option>
+                                    </select>
+                                    <select id="camp-categoria" class="camp-select-sm">
+                                        <option value="Iniciante">Iniciante</option>
+                                        <option value="Intermediário">Intermediário</option>
+                                        <option value="Avançado">Avançado</option>
+                                        <option value="Open">Open</option>
+                                    </select>
+                                    <button id="camp-load-players-btn" class="btn btn-ghost btn-sm">
+                                        <i class="fas fa-download"></i> Carregar Base
+                                    </button>
+                                    <button id="camp-deselect-btn" class="btn btn-danger-ghost btn-sm">
+                                        <i class="fas fa-eraser"></i> Limpar
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="camp-players-grid" class="camp-players-grid">
+                                <div class="empty-state">
+                                    <i class="fas fa-users-rays"></i>
+                                    <p>Selecione a categoria e carregue os jogadores disponíveis</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button id="camp-start-btn" class="btn btn-primary btn-large" disabled>
+                            <i class="fas fa-play"></i> Selecione 12 jogadores para iniciar
+                        </button>
+                    </div>
+                </div>
+
+                <div id="camp-step-fase1" class="camp-step hidden">
+                    <div class="panel-header">
+                        <div>
+                            <h1 class="panel-title">Fase 1 <span class="camp-phase-tag blue">Classificatória</span></h1>
+                            <p id="camp-f1-subtitle" class="panel-subtitle">Rodada 1 de 2 · 6 duplas</p>
+                        </div>
+                        <div class="panel-header-actions">
+                            <button id="camp-f1-sortear-btn" class="btn btn-ghost"><i class="fas fa-shuffle"></i> Re-sortear</button>
+                            <button id="camp-f1-proxima-btn" class="btn btn-primary hidden"><i class="fas fa-arrow-right"></i> Ir para Rodada 2</button>
+                            <button id="camp-f1-avancar-btn" class="btn btn-primary hidden"><i class="fas fa-forward-step"></i> Avançar p/ Quartas</button>
+                        </div>
+                    </div>
+                    <div class="camp-layout">
+                        <div class="camp-jogos-section">
+                            <div class="camp-section-label">Jogos da Rodada</div>
+                            <div id="camp-f1-jogos" class="camp-jogos-list"></div>
+                        </div>
+                        <div class="camp-ranking-section">
+                            <div class="camp-section-label">Ranking Parcial ao Vivo</div>
+                            <div id="camp-f1-ranking" class="camp-ranking-list"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="camp-step-fase2" class="camp-step hidden">
+                    <div class="panel-header">
+                        <div>
+                            <h1 class="panel-title">Fase 2 <span class="camp-phase-tag orange">Quartas de Final</span></h1>
+                            <p class="panel-subtitle">8 classificados · 4 jogos · 4 serão eliminados</p>
+                        </div>
+                        <div class="panel-header-actions">
+                            <button id="camp-f2-sortear-btn" class="btn btn-ghost"><i class="fas fa-shuffle"></i> Re-sortear</button>
+                            <button id="camp-f2-avancar-btn" class="btn btn-primary hidden"><i class="fas fa-forward-step"></i> Avançar p/ Final</button>
+                        </div>
+                    </div>
+                    <div class="camp-layout">
+                        <div class="camp-jogos-section">
+                            <div class="camp-section-label">Confrontos</div>
+                            <div id="camp-f2-jogos" class="camp-jogos-list"></div>
+                        </div>
+                        <div class="camp-ranking-section">
+                            <div class="camp-section-label">Classificação</div>
+                            <div id="camp-f2-ranking" class="camp-ranking-list"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="camp-step-final" class="camp-step hidden">
+                    <div class="panel-header">
+                        <div>
+                            <h1 class="panel-title">Fase Final <span class="camp-phase-tag red">Decisão do Pódio</span></h1>
+                            <p class="panel-subtitle">4 finalistas · 2 jogos</p>
+                        </div>
+                        <div class="panel-header-actions">
+                            <button id="camp-final-sortear-btn" class="btn btn-ghost"><i class="fas fa-shuffle"></i> Re-sortear</button>
+                            <button id="camp-final-encerrar-btn" class="btn btn-primary hidden"><i class="fas fa-trophy"></i> Encerrar Torneio</button>
+                        </div>
+                    </div>
+                    <div class="camp-layout">
+                        <div class="camp-jogos-section">
+                            <div class="camp-section-label">Jogos Decisivos</div>
+                            <div id="camp-final-jogos" class="camp-jogos-list"></div>
+                        </div>
+                        <div class="camp-ranking-section">
+                            <div class="camp-section-label">Placar do Pódio</div>
+                            <div id="camp-final-ranking" class="camp-ranking-list"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="camp-step-podio" class="camp-step hidden">
+                    <div class="panel-header">
+                        <div>
+                            <h1 class="panel-title">🏆 Pódio Oficial</h1>
+                            <p class="panel-subtitle">Torneio encerrado. Os pontos foram salvos no histórico dos jogadores.</p>
+                        </div>
+                        <div class="panel-header-actions">
+                            <button id="camp-novo-btn" class="btn btn-primary">
+                                <i class="fas fa-rotate-left"></i> Iniciar Novo Torneio
+                            </button>
+                        </div>
+                    </div>
+                    <div id="camp-podio-display" class="camp-podio-display"></div>
+                    <div class="camp-section-label" style="margin-top:40px">Classificação Geral do Torneio</div>
+                    <div id="camp-ranking-completo" class="camp-ranking-completo"></div>
+                </div>
+
+            </section>
+        </main>
+    </div>
+
+    <div id="modal-jogador" class="modal-backdrop">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modal-jogador-title">Cadastrar Jogador</h3>
+                <button class="modal-close" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+            </div>
+            <form id="jogador-form">
+                <input type="hidden" id="edit-jogador-id">
+                <div class="form-grid">
+                    <label class="form-label full-width">
+                        <span>Nome Completo *</span>
+                        <input type="text" id="j-nome" required placeholder="Ex: João Silva">
+                    </label>
+                    <label class="form-label">
+                        <span>Modalidade *</span>
+                        <select id="j-modalidade" required>
+                            <option value="Masculina">Masculino</option>
+                            <option value="Feminina">Feminino</option>
+                            <option value="Mista">Mista</option>
+                        </select>
+                    </label>
+                    <label class="form-label">
+                        <span>Categoria *</span>
+                        <select id="j-categoria" required>
+                            <option value="Iniciante">Iniciante</option>
+                            <option value="Intermediário">Intermediário</option>
+                            <option value="Avançado">Avançado</option>
+                            <option value="Open">Open</option>
+                        </select>
+                    </label>
+                    <label class="form-label">
+                        <span>Idade (Opcional)</span>
+                        <input type="number" id="j-idade" placeholder="Ex: 28">
+                    </label>
+                    <label class="form-label">
+                        <span>Telefone (Opcional)</span>
+                        <input type="text" id="j-telefone" placeholder="(00) 00000-0000">
+                    </label>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-ghost modal-cancel">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-lista-jogadores" class="modal-backdrop">
+        <div class="modal modal-large">
+            <div class="modal-header">
+                <h3>Base de Jogadores</h3>
+                <button class="modal-close" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+            </div>
+            <div class="lista-filtros">
+                <div class="search-wrapper">
+                    <i class="fas fa-magnifying-glass"></i>
+                    <input type="text" id="lista-search-input" placeholder="Buscar jogador pelo nome...">
+                </div>
+                <select id="lista-modalidade-filter" class="camp-select-sm">
+                    <option value="Masculina">Masculino</option>
+                    <option value="Feminina">Feminino</option>
+                    <option value="Mista">Mista</option>
+                </select>
+                <select id="lista-categoria-filter" class="camp-select-sm">
+                    <option value="Iniciante">Iniciante</option>
+                    <option value="Intermediário">Intermediário</option>
+                    <option value="Avançado">Avançado</option>
+                    <option value="Open">Open</option>
+                </select>
+            </div>
+            
+            <div class="table-container">
+                <div id="lista-loading" class="hidden"><div class="spinner"></div></div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Modalidade</th>
+                            <th>Categoria</th>
+                            <th class="col-actions">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-jogadores-body">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-perfil-jogador" class="modal-backdrop">
+        <div class="modal modal-wide">
+            <div class="modal-header">
+                <div>
+                    <h3 id="perfil-nome">Nome do Jogador</h3>
+                    <p id="perfil-categoria" class="panel-subtitle">Modalidade · Categoria</p>
+                </div>
+                <div class="panel-header-actions">
+                    <button id="perfil-editar-btn" class="btn btn-ghost btn-sm"><i class="fas fa-pen"></i> Editar</button>
+                    <button id="perfil-reset-historico-btn" class="btn btn-danger-ghost btn-sm" title="Zerar Estatísticas"><i class="fas fa-rotate-left"></i> Resetar</button>
+                    <button id="perfil-excluir-btn" class="btn btn-danger-ghost btn-sm"><i class="fas fa-trash"></i> Excluir</button>
+                    <button class="modal-close" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+                </div>
+            </div>
+            
+            <div id="perfil-stats-summary" class="player-stats-summary">
+                </div>
+            
+            <h4 style="margin: 24px 0 16px 0; color: var(--c-text); border-bottom: 1px solid var(--c-border); padding-bottom: 8px;">Histórico de Torneios</h4>
+            <div id="perfil-historico-list" class="player-history-list">
+                </div>
+        </div>
+    </div>
+
+    <div id="modal-resultado" class="modal-backdrop">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="resultado-title">Resultado da Partida</h3>
+                <button class="modal-close" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+            </div>
+            <div class="camp-resultado-matchup" id="resultado-matchup"></div>
+            
+            <div class="camp-resultado-form">
+                <div class="camp-resultado-placar-row">
+                    <label class="select-label" style="flex:1">
+                        <span>Placar (Ex: 4-2 ou 4-1TB)</span>
+                        <input type="text" id="resultado-placar" placeholder="4-2" maxlength="10">
+                    </label>
+                    <label class="select-label" style="flex:1">
+                        <span>Vencedor</span>
+                        <select id="resultado-vencedor">
+                            <option value="">Selecione a dupla...</option>
+                        </select>
+                    </label>
+                </div>
+                <div id="resultado-bonus-preview" class="camp-bonus-preview">
+                    <span style="color:var(--c-muted);font-size:0.8rem">Digite o placar e selecione o vencedor para ver os pontos calculados.</span>
+                </div>
+            </div>
+            
+            <div class="modal-actions" style="margin-top:24px">
+                <button type="button" class="btn btn-ghost modal-cancel">Cancelar</button>
+                <button id="resultado-confirmar-btn" class="btn btn-primary">
+                    <i class="fas fa-check-circle"></i> Confirmar Resultado
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-confirm" class="modal-backdrop">
+        <div class="modal modal-confirm">
+            <div class="modal-header">
+                <h3 id="modal-confirm-title">Arena AMP — Aviso</h3>
+                <button class="modal-close" id="modal-confirm-close" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+            </div>
+            <p id="modal-confirm-message" class="modal-confirm-message"></p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost" id="modal-confirm-cancel">Cancelar</button>
+                <button type="button" class="btn btn-danger-ghost" id="modal-confirm-ok">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-contas-site" class="modal-backdrop">
+        <div class="modal modal-wide">
+            <div class="modal-header">
+                <div>
+                    <h3>Usuários do painel</h3>
+                    <p class="panel-subtitle">Criar ou remover contas com acesso ao site</p>
+                </div>
+                <button class="modal-close" type="button" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+            </div>
+            <form id="form-nova-conta-site" class="contas-site-nova">
+                <div class="form-grid">
+                    <label class="form-label">
+                        <span>Novo usuário</span>
+                        <input type="text" id="nova-conta-username" autocomplete="off" required maxlength="80">
+                    </label>
+                    <label class="form-label">
+                        <span>Senha inicial</span>
+                        <input type="password" id="nova-conta-password" autocomplete="new-password" required maxlength="200">
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-user-plus"></i> Criar usuário</button>
+            </form>
+            <h4 class="contas-site-list-title">Contas cadastradas</h4>
+            <div id="contas-site-list" class="contas-site-list"></div>
+        </div>
+    </div>
+
+    <script src="script.js?v=4"></script>
+</body>
+</html>

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Assinatura — {{ arena.arena_name }}</title>
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='logo.ico') }}">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#FBFAF8;--card:#FFFFFF;--navy:#132539;--ink:#181A1F;--muted:#8E9198;--faint:#B9BCC2;--line:#ECEAE6;
+          --accent:{{ arena.accent }};--gold:#D9B45B;--gold2:#F0D488;--ok:#3B9A2B;--body:'Barlow',system-ui,sans-serif}
+    *{box-sizing:border-box;margin:0;font-family:var(--body);-webkit-tap-highlight-color:transparent}
+    body{background:var(--bg);color:var(--ink);min-height:100vh}
+    .wrap{max-width:520px;margin:0 auto;padding:34px 26px 60px}
+    .head{margin-bottom:20px}
+    .head .eyebrow{color:var(--accent);font-weight:700;font-size:12px;letter-spacing:.6px;text-transform:uppercase}
+    .head h1{font-size:27px;font-weight:800;letter-spacing:-.5px;margin-top:6px}
+    .head p{color:var(--muted);font-size:14px;margin-top:4px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px}
+    .plan-top{display:flex;align-items:center;gap:13px}
+    .crown{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--gold2),var(--gold));
+      display:grid;place-items:center;color:#3A2C05;font-size:19px;flex-shrink:0}
+    .crown.gray{background:#EDEBE7;color:var(--faint)}
+    .plan-nm{font-size:18px;font-weight:800;letter-spacing:-.3px}
+    .status{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;margin-top:3px}
+    .status .sdot{width:7px;height:7px;border-radius:50%}
+    .st-ok{color:var(--ok)}.st-ok .sdot{background:var(--ok)}
+    .st-warn{color:#B65A10}.st-warn .sdot{background:var(--accent)}
+    .st-off{color:#B03A3A}.st-off .sdot{background:#B03A3A}
+    .rows{margin-top:18px;border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:12px}
+    .row{display:flex;justify-content:space-between;align-items:baseline;font-size:13px}
+    .row .l{color:var(--muted)}
+    .row .v{color:var(--ink);font-weight:700}
+    .sec{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:20px 0 10px}
+    .pay{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;padding:9px 0;border-top:1px solid #F3F1ED}
+    .pay:first-of-type{border-top:none}
+    .pay .pd{color:var(--ink);font-weight:600}
+    .pay .pc{color:var(--muted)}
+    .pay .ps{color:var(--ok);font-weight:700}
+    .cta{margin-top:20px;width:100%;padding:14px;border:none;border-radius:12px;cursor:pointer;
+      background:linear-gradient(135deg,var(--gold2),var(--gold));color:#3A2C05;font-weight:800;font-size:14.5px;font-family:var(--body);
+      display:flex;align-items:center;justify-content:center;gap:9px}
+    .cta.solid{background:var(--navy);color:#fff}
+    .cta.cta-outline{background:#fff;color:var(--navy);border:1.5px solid var(--line)}
+    /* Bloco do Site (assinatura própria) */
+    .site-box{border:1px solid var(--line);border-radius:14px;padding:16px}
+    .site-head{display:flex;align-items:center;gap:12px}
+    .site-ic{width:38px;height:38px;border-radius:11px;background:#EDEBE7;color:var(--faint);display:grid;place-items:center;font-size:16px;flex-shrink:0}
+    .site-ic.on{background:linear-gradient(135deg,var(--gold2),var(--gold));color:#3A2C05}
+    .site-nm{font-size:15px;font-weight:800;letter-spacing:-.2px}
+    .site-pr{text-align:right;font-size:16px;font-weight:800;color:var(--navy);white-space:nowrap}
+    .site-pr small{font-size:11px;font-weight:600;color:var(--muted)}
+    .cta-site{margin-top:14px}
+    .empty{text-align:center;color:var(--muted);font-size:13px;padding:6px 0 2px}
+    .muted{color:var(--muted);font-size:12.5px;margin-top:14px;text-align:center}
+    .load{color:var(--muted);font-size:13px;text-align:center;padding:30px 0}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div class="eyebrow">Sua conta</div>
+      <h1>Assinatura</h1>
+      <p>Acompanhe seu plano, vencimento e pagamentos.</p>
+    </div>
+    <div class="card" id="card">
+      <div class="load"><i class="fa-solid fa-circle-notch fa-spin"></i> Carregando…</div>
+    </div>
+  </div>
+
+  <script>
+    var PLAN = {{ plan|tojson }};
+    var inShell = (window.self !== window.top);
+
+    var MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+    function parseDate(s){
+      if (!s) return null;
+      var iso = String(s).replace(' UTC','').replace(' ','T');
+      var d = new Date(iso);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    function fmtData(s){
+      var d = parseDate(s);
+      if (!d) return '—';
+      return d.getDate() + ' de ' + MESES[d.getMonth()] + ' de ' + d.getFullYear();
+    }
+    function fmtReais(cents){
+      if (cents == null) return '—';
+      return 'R$ ' + (cents/100).toFixed(2).replace('.', ',');
+    }
+    function diasRestantes(s){
+      var d = parseDate(s); if (!d) return null;
+      return Math.ceil((d - new Date()) / 86400000);
+    }
+    function abrirPlanos(){
+      if (inShell) window.parent.postMessage({ amp:'planos' }, '*');
+      else window.location.href = '/';
+    }
+    function siteCheckout(){
+      // Checkout avulso do site (assinatura própria, R$20). Abre o Mercado Pago
+      // e depois oferece "Já paguei, verificar" que recarrega ao ativar o site.
+      var btn = document.querySelector('.cta-site');
+      if (btn) { btn.disabled = true; btn.innerHTML = 'Abrindo pagamento…'; }
+      fetch('/api/checkout', {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({plan:'site'})})
+        .then(function(r){ return r.json(); })
+        .then(function(res){
+          if (res.checkout_url) {
+            window.open(res.checkout_url, '_blank', 'noopener');
+            if (btn){ btn.disabled=false; btn.className='cta cta-outline'; btn.innerHTML='<i class="fa-solid fa-rotate-right"></i> Já paguei, verificar'; btn.setAttribute('onclick','verificarSite(this)'); }
+          } else if (btn) {
+            btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-globe"></i> Contratar site';
+            alert(res.error || 'Não foi possível iniciar o pagamento.');
+          }
+        })
+        .catch(function(){ if(btn){ btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-globe"></i> Contratar site'; } });
+    }
+    function verificarSite(btn){
+      btn.disabled=true; btn.innerHTML='Verificando…';
+      fetch('/api/checkout/verify', {method:'POST'}).then(function(r){ return r.json(); }).then(function(){
+        location.reload();
+      }).catch(function(){ btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-rotate-right"></i> Já paguei, verificar'; });
+    }
+
+    function render(info){
+      info = info || {};
+      // Fonte da verdade = dado fresco do servidor (info); só cai pro cache
+      // local (PLAN) se o servidor não respondeu.
+      var temInfo = !!info.plan;
+      var premium = temInfo ? (info.plan === 'premium') : PLAN.is_premium;
+      var demo = temInfo ? (info.plan === 'demo') : PLAN.is_demo;
+      var exp = info.expires_at || '';
+      var dias = exp ? diasRestantes(exp) : null;
+      var vencido = (exp && dias !== null && dias < 0);
+
+      var crownCls = (premium || demo) ? '' : 'gray';
+      var nome, stCls, stTxt;
+      if (premium) {
+        nome = info.ciclo ? ('Plano ' + info.ciclo) : 'Premium';
+        if (vencido) { stCls='st-off'; stTxt='Vencido'; }
+        else { stCls='st-ok'; stTxt = (dias!=null && dias<=7) ? ('Vence em ' + dias + ' dia(s)') : 'Ativo'; }
+      } else if (demo) {
+        nome = 'Período de teste';
+        stCls='st-warn';
+        var dd = (dias != null) ? dias : PLAN.demo_days_left;
+        stTxt = (dd != null) ? (Math.max(0, dd) + ' dia(s) restante(s)') : 'Teste';
+      } else {
+        nome = 'Sem assinatura ativa';
+        stCls='st-off'; stTxt='Inativo';
+      }
+
+      var h = '';
+      h += '<div class="plan-top">'
+        + '<div class="crown '+crownCls+'"><i class="fa-solid '+((premium||demo)?'fa-crown':'fa-lock')+'"></i></div>'
+        + '<div><div class="plan-nm">'+nome+'</div>'
+        + '<div class="status '+stCls+'"><span class="sdot"></span>'+stTxt+'</div></div></div>';
+
+      var rows = '';
+      if (premium || demo) {
+        if (info.desde) rows += '<div class="row"><span class="l">Assinante desde</span><span class="v">'+fmtData(info.desde)+'</span></div>';
+        rows += '<div class="row"><span class="l">'+(demo?'Teste termina em':'Próximo vencimento')+'</span><span class="v">'
+              + (exp ? fmtData(exp) : (premium ? 'Sem vencimento' : '—')) + '</span></div>';
+        if (info.ciclo) rows += '<div class="row"><span class="l">Cobrança</span><span class="v">'+info.ciclo+'</span></div>';
+      }
+      if (rows) h += '<div class="rows">'+rows+'</div>';
+
+      // ── Site profissional: assinatura PRÓPRIA (com seu vencimento) ──
+      if (premium || info.has_site) {
+        var siteAtivo = !!info.site_ativo;
+        var siteExp = info.site_expires_at || '';
+        var siteDesde = info.site_started_at || '';
+        var sd = siteExp ? diasRestantes(siteExp) : null;
+        var sCls, sTxt;
+        if (siteAtivo) { sCls='st-ok'; sTxt = (sd!=null && sd>=0 && sd<=7) ? ('Vence em '+sd+' dia(s)') : 'Ativo'; }
+        else if (info.has_site) { sCls='st-off'; sTxt='Vencido'; }
+        else { sCls='st-warn'; sTxt='Não contratado'; }
+        h += '<div class="sec">Site profissional</div>';
+        h += '<div class="site-box">'
+          + '<div class="site-head"><span class="site-ic '+(siteAtivo?'on':'')+'"><i class="fa-solid fa-globe"></i></span>'
+          + '<div style="flex:1"><div class="site-nm">Site profissional</div>'
+          + '<div class="status '+sCls+'"><span class="sdot"></span>'+sTxt+'</div></div>'
+          + '<div class="site-pr">R$ 20<small>/mês</small></div></div>';
+        var siteRows = '';
+        if (siteDesde) siteRows += '<div class="row"><span class="l">Contratado em</span><span class="v">'+fmtData(siteDesde)+'</span></div>';
+        if (siteExp) siteRows += '<div class="row"><span class="l">Próximo vencimento</span><span class="v">'+fmtData(siteExp)+'</span></div>';
+        if (siteRows) h += '<div class="rows" style="margin-top:12px">'+siteRows+'</div>';
+        // Só mostra "Renovar" perto do vencimento (<=15 dias) ou já vencido —
+        // enquanto está tranquilamente ativo, o botão só confundiria.
+        var podeRenovar = !siteAtivo || (sd != null && sd <= 15);
+        if (premium && podeRenovar) {
+          h += '<button class="cta cta-site" onclick="siteCheckout()"><i class="fa-solid fa-globe"></i> '+(siteAtivo?'Renovar site':'Contratar site')+'</button>';
+        } else if (premium) {
+          h += '<div class="muted" style="margin-top:14px">Renovação liberada a partir de 15 dias antes do vencimento.</div>';
+        }
+        h += '</div>';
+      }
+
+      var pgs = info.pagamentos || [];
+      if (pgs.length) {
+        h += '<div class="sec">Últimos pagamentos</div>';
+        pgs.slice(0,5).forEach(function(p){
+          h += '<div class="pay"><span class="pd">'+fmtData(p.data)+'</span>'
+            + '<span class="pc">'+(p.plano||'')+' · '+fmtReais(p.valor_cents)+'</span>'
+            + '<span class="ps">Aprovado</span></div>';
+        });
+      }
+
+      if (premium && !vencido) {
+        h += '<button class="cta" onclick="abrirPlanos()"><i class="fa-solid fa-arrows-rotate"></i> Renovar ou mudar de plano</button>';
+        h += '<div class="muted">Precisa de ajuda? Fale com o suporte pelo Hub.</div>';
+      } else {
+        h += '<button class="cta '+((premium||demo)?'':'')+'" onclick="abrirPlanos()"><i class="fa-solid fa-crown"></i> '
+          + (vencido ? 'Renovar assinatura' : (demo ? 'Assinar agora' : 'Ver planos e assinar')) + '</button>';
+        if (!premium && !demo) h += '<div class="empty" style="margin-top:12px">Assine para manter todos os módulos liberados.</div>';
+      }
+
+      document.getElementById('card').innerHTML = h;
+    }
+
+    fetch('/api/assinatura').then(function(r){ return r.json(); })
+      .then(function(info){ render(info.error ? {} : info); })
+      .catch(function(){ render({}); });
+  </script>
+</body>
+</html>

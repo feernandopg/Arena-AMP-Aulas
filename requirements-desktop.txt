@@ -1,0 +1,7 @@
+# Dependências para RODAR e COMPILAR o app instalável (no SEU PC de build)
+flask
+flask-sqlalchemy
+flask-login
+werkzeug
+cryptography
+nuitka

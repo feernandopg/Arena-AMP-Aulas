@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configurações — {{ identity.arena_name }}</title>
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='logo.ico') }}">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#FBFAF8;--card:#FFFFFF;--ink:#181A1F;--muted:#8E9198;--faint:#B9BCC2;--line:#ECEAE6;
+          --accent:{{ identity.accent }};--body:'Barlow',system-ui,sans-serif;--danger:#D64545}
+    *{box-sizing:border-box;margin:0;font-family:var(--body);-webkit-tap-highlight-color:transparent}
+    body{background:var(--bg);color:var(--ink);min-height:100vh}
+    .wrap{max-width:900px;margin:0 auto;padding:0 30px 60px}
+    .top{display:flex;align-items:center;justify-content:space-between;padding:20px 0}
+    .back{display:inline-flex;align-items:center;gap:8px;color:var(--muted);text-decoration:none;font-weight:600;font-size:13px}
+    .back:hover{color:var(--ink)}
+    .u{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:13px}
+    .head{padding:8px 0 22px}
+    .head .eyebrow{color:var(--accent);font-weight:700;font-size:12px;letter-spacing:.6px;text-transform:uppercase}
+    .head h1{font-size:30px;font-weight:700;letter-spacing:-.5px;margin-top:6px}
+    .head p{color:var(--muted);font-size:15px;margin-top:4px}
+    .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:26px}
+    .tab{background:none;border:none;padding:12px 16px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;
+         border-bottom:2px solid transparent;margin-bottom:-1px;display:inline-flex;align-items:center;gap:8px}
+    .tab.active{color:var(--ink);border-bottom-color:var(--accent)}
+    .tab:hover{color:var(--ink)}
+    .panel{display:none}.panel.active{display:block}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:24px;margin-bottom:16px}
+    .card h2{font-size:16px;font-weight:700}
+    .card .hint{color:var(--muted);font-size:13px;margin-top:2px;margin-bottom:18px}
+    label{display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:6px}
+    input[type=text],input[type=password],input[type=color]{width:100%;padding:11px 12px;border:1px solid var(--line);
+      border-radius:9px;font-size:14px;background:#fff;color:var(--ink)}
+    input[type=color]{padding:4px;height:44px;cursor:pointer}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .field{margin-bottom:16px}
+    .btn{display:inline-flex;align-items:center;gap:8px;border:none;border-radius:10px;padding:11px 18px;
+      font-size:14px;font-weight:600;cursor:pointer;text-decoration:none}
+    .btn-primary{background:var(--accent);color:#fff}
+    .btn-dark{background:var(--ink);color:#fff}
+    .btn-ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+    .btn-danger{background:#fff;color:var(--danger);border:1px solid #F2D4D4}
+    .btn-danger:hover{background:var(--danger);color:#fff}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    .logo-prev{width:56px;height:56px;border-radius:12px;object-fit:contain;background:#F4F1EC;border:1px solid var(--line);
+      display:grid;place-items:center;color:var(--faint);font-size:20px}
+    .file-inp{font-size:13px;color:var(--muted)}
+    .file-inp::file-selector-button{margin-right:10px;border:1px solid var(--line);background:#fff;color:var(--ink);
+      padding:8px 12px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;font-family:var(--body)}
+    table{width:100%;border-collapse:collapse}
+    th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);
+       font-weight:700;padding:0 10px 10px}
+    td{padding:12px 10px;border-top:1px solid var(--line);vertical-align:middle;font-size:14px}
+    .uav{width:34px;height:34px;border-radius:50%;object-fit:cover;background:#F1EEE9;border:1px solid var(--line);
+      display:grid;place-items:center;color:var(--faint)}
+    .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px}
+    .badge.adm{background:#FFEFE2;color:#C25A12}
+    .badge.user{background:#EEF0F2;color:#6B7178}
+    .chips{display:flex;gap:5px;flex-wrap:wrap}
+    .chip{font-size:11px;font-weight:600;background:#F4F1EC;color:#6B7178;border:1px solid var(--line);
+      padding:2px 8px;border-radius:6px}
+    .perms-grid{display:flex;gap:14px;flex-wrap:wrap;margin-top:2px}
+    .pcheck{display:inline-flex;align-items:center;gap:7px;font-weight:500;color:var(--ink);font-size:14px;cursor:pointer}
+    .icon-btn{background:none;border:1px solid var(--line);border-radius:8px;width:34px;height:34px;cursor:pointer;
+      color:var(--muted)}.icon-btn:hover{color:var(--ink);border-color:var(--faint)}
+    .icon-btn.del:hover{color:var(--danger);border-color:#F2D4D4}
+    .seg{display:inline-flex;background:#F4F1EC;border-radius:10px;padding:4px;gap:2px;margin-bottom:18px}
+    .seg button{border:none;background:none;padding:8px 16px;border-radius:7px;font-weight:600;font-size:13px;
+      color:var(--muted);cursor:pointer}
+    .seg button.active{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+    .warn{background:#FFF6EE;border:1px solid #FBE0C8;border-radius:10px;padding:12px 14px;font-size:13px;
+      color:#9A5A1A;margin-bottom:16px}
+    .soon{color:var(--faint);font-size:13px;font-style:italic}
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);
+      color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600;opacity:0;pointer-events:none;
+      transition:.25s;z-index:50}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    .toast.err{background:var(--danger)}
+    /* atividade */
+    .atv-row{display:flex;align-items:center;gap:12px;padding:11px 4px;border-top:1px solid var(--line);font-size:13.5px}
+    .atv-row:first-child{border-top:none}
+    .atv-sys{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:3px 8px;border-radius:6px;flex-shrink:0;width:76px;text-align:center}
+    .atv-sys.aulas{background:#FFEFE2;color:#C25A12}
+    .atv-sys.comandas{background:#E7F5EF;color:#1F9E6E}
+    .atv-sys.ranking{background:#EEF0FA;color:#4C5BC0}
+    .atv-sys.config{background:#EEF0F2;color:#6B7178}
+    .atv-desc{flex:1;min-width:0}
+    .atv-meta{color:var(--muted);font-size:12px;white-space:nowrap}
+    .atv-user{font-weight:600;color:var(--ink)}
+    /* modal */
+    .backdrop{position:fixed;inset:0;background:rgba(24,26,31,.45);display:none;place-items:center;z-index:40;padding:20px}
+    .backdrop.show{display:grid}
+    .modal{background:#fff;border-radius:16px;padding:26px;width:100%;max-width:440px}
+    .modal h3{font-size:18px;font-weight:700;margin-bottom:4px}
+    .modal .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+    .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
+    @media(max-width:620px){.row{grid-template-columns:1fr}.wrap{padding:0 18px 60px}}
+    html.in-shell .standalone-only{display:none!important}
+    html.in-shell .head{padding-top:26px}
+  </style>
+</head>
+<body>
+  <script>if (window.self !== window.top) document.documentElement.classList.add('in-shell');</script>
+  <div class="wrap">
+    <div class="top standalone-only">
+      <a class="back" href="/"><i class="fa-solid fa-arrow-left"></i> Voltar ao Hub</a>
+      <div class="u"><i class="fa-regular fa-circle-user"></i> {{ user.username }}</div>
+    </div>
+
+    <div class="head">
+      <div class="eyebrow">Administração</div>
+      <h1>Configurações</h1>
+      <p>Identidade da arena, usuários, permissões e backups.</p>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="identidade"><i class="fa-solid fa-palette"></i> Identidade</button>
+      <button class="tab" data-tab="usuarios"><i class="fa-solid fa-users-gear"></i> Usuários</button>
+      <button class="tab" data-tab="backups"><i class="fa-solid fa-database"></i> Backups</button>
+      <button class="tab" data-tab="atividade"><i class="fa-solid fa-clock-rotate-left"></i> Atividade</button>
+    </div>
+
+    <!-- IDENTIDADE -->
+    <section class="panel active" id="panel-identidade">
+      <form class="card" id="form-identity">
+        <h2>Identidade da arena</h2>
+        <p class="hint">Essas informações aparecem no Hub e nos sistemas.</p>
+        <div class="field">
+          <label>Nome da arena</label>
+          <input type="text" name="arena_name" id="id-name" maxlength="60" value="{{ identity.arena_name }}">
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Cor de identidade</label>
+            <input type="color" name="accent" id="id-accent" value="{{ identity.accent }}">
+          </div>
+          <div class="field">
+            <label>Logo</label>
+            <div style="display:flex;align-items:center;gap:14px">
+              <span class="logo-prev" id="logo-prev">
+                {% if identity.logo %}<img src="{{ url_for('uploaded_file', filename=identity.logo) }}" style="width:100%;height:100%;object-fit:contain;border-radius:12px">
+                {% else %}<i class="fa-regular fa-image"></i>{% endif %}
+              </span>
+              <input class="file-inp" type="file" name="logo" id="id-logo" accept="image/*">
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-primary" type="submit"><i class="fa-solid fa-check"></i> Salvar identidade</button>
+      </form>
+    </section>
+
+    <!-- USUARIOS -->
+    <section class="panel" id="panel-usuarios">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div><h2>Usuários e permissões</h2>
+          <p class="hint">Defina quem acessa cada sistema. Administradores têm acesso total.</p></div>
+          <button class="btn btn-dark" id="btn-new-user"><i class="fa-solid fa-plus"></i> Novo usuário</button>
+        </div>
+        <table>
+          <thead><tr><th>Usuário</th><th>Papel</th><th>Acesso</th><th style="text-align:right">Ações</th></tr></thead>
+          <tbody id="users-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- BACKUPS -->
+    <section class="panel" id="panel-backups">
+      <div class="card">
+        <h2>Backups</h2>
+        <p class="hint">Baixe uma cópia dos seus dados ou restaure a partir de um arquivo.</p>
+        <div class="seg" id="bk-seg">
+          <button class="active" data-sys="aulas">Aulas</button>
+          <button data-sys="ranking">Ranking</button>
+          <button data-sys="comandas">Comandas</button>
+        </div>
+
+        <div id="bk-aulas">
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <a class="btn btn-primary" href="/api/backup"><i class="fa-solid fa-download"></i> Fazer backup</a>
+            <button class="btn btn-ghost" id="btn-restore-aulas"><i class="fa-solid fa-upload"></i> Restaurar backup</button>
+            <a class="btn btn-ghost" href="/migrate"><i class="fa-solid fa-database"></i> Migrar banco</a>
+          </div>
+          <p class="hint" style="margin-top:14px;margin-bottom:0">O backup salva alunos, turmas, matrículas e histórico. O restore adiciona sem apagar o que já existe.</p>
+        </div>
+
+        <div id="bk-ranking" style="display:none">
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <a class="btn btn-primary" href="/ranking/api/backup"><i class="fa-solid fa-download"></i> Fazer backup</a>
+            <button class="btn btn-ghost" id="btn-restore-ranking"><i class="fa-solid fa-upload"></i> Restaurar backup</button>
+            <input type="file" id="rk-restore-file" accept=".json" style="display:none">
+          </div>
+          <p class="hint" style="margin-top:14px;margin-bottom:0">O backup salva jogadores, partidas e campeonatos. <strong>Atenção:</strong> restaurar <em>substitui</em> todos os dados atuais do Ranking pelos do arquivo.</p>
+        </div>
+
+        <div id="bk-comandas" style="display:none;">
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <a class="btn btn-primary" href="/comandas/api/backup"><i class="fa-solid fa-download"></i> Fazer backup</a>
+            <button class="btn btn-ghost" id="btn-restore-comandas"><i class="fa-solid fa-upload"></i> Restaurar backup</button>
+            <input type="file" id="cm-restore-file" accept=".json" style="display:none">
+          </div>
+          <p class="hint" style="margin-top:14px;margin-bottom:0">O backup salva produtos, clientes, categorias e comandas. <strong>Atenção:</strong> restaurar <em>substitui</em> todos os dados atuais do Comandas pelos do arquivo.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ATIVIDADE (log global do ecossistema) -->
+    <section class="panel" id="panel-atividade">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
+          <div><h2>Atividade do sistema</h2>
+          <p class="hint">Tudo que cada usuário fez, em todos os módulos. Últimos 500 registros.</p></div>
+          <div class="seg" id="atv-seg">
+            <button class="active" data-sys="">Tudo</button>
+            <button data-sys="aulas">Aulas</button>
+            <button data-sys="comandas">Comandas</button>
+            <button data-sys="ranking">Ranking</button>
+            <button data-sys="config">Config</button>
+          </div>
+        </div>
+        <div id="atv-list" style="margin-top:6px"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Modal usuário -->
+  <div class="backdrop" id="user-modal">
+    <form class="modal" id="form-user">
+      <h3 id="um-title">Novo usuário</h3>
+      <p class="sub" id="um-sub">Crie um acesso e escolha o que ele pode usar.</p>
+      <input type="hidden" id="um-id">
+      <div class="field">
+        <label>Usuário</label>
+        <input type="text" id="um-username" autocomplete="off">
+      </div>
+      <div class="field">
+        <label id="um-pass-label">Senha</label>
+        <input type="password" id="um-password" autocomplete="new-password">
+      </div>
+      <div class="field">
+        <label>Papel</label>
+        <div class="perms-grid">
+          <label class="pcheck"><input type="radio" name="um-role" value="user" checked> Usuário</label>
+          <label class="pcheck"><input type="radio" name="um-role" value="adm"> Administrador</label>
+        </div>
+      </div>
+      <div class="field" id="um-perms-field">
+        <label>Acesso aos sistemas</label>
+        <div class="perms-grid" id="um-perms">
+          {% for m in all_modules %}
+          <label class="pcheck"><input type="checkbox" value="{{ m }}"> {{ m|capitalize }}</label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="field">
+        <label>Foto (opcional)</label>
+        <input class="file-inp" type="file" id="um-photo" accept="image/*">
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="um-cancel">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="um-save">Salvar</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const $ = (s,r=document)=>r.querySelector(s);
+    const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
+    const MODS = {{ all_modules|tojson }};
+
+    function toast(msg, err=false){
+      const t=$('#toast'); t.textContent=msg; t.className='toast show'+(err?' err':'');
+      setTimeout(()=>t.className='toast',2600);
+    }
+
+    // ── Tabs ──
+    $$('.tab').forEach(b=>b.addEventListener('click',()=>{
+      $$('.tab').forEach(x=>x.classList.remove('active'));
+      $$('.panel').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      $('#panel-'+b.dataset.tab).classList.add('active');
+    }));
+
+    // ── Identidade ──
+    $('#id-logo').addEventListener('change',e=>{
+      const f=e.target.files[0]; if(!f) return;
+      const url=URL.createObjectURL(f);
+      $('#logo-prev').innerHTML=`<img src="${url}" style="width:100%;height:100%;object-fit:contain;border-radius:12px">`;
+    });
+    $('#form-identity').addEventListener('submit',async e=>{
+      e.preventDefault();
+      const fd=new FormData();
+      fd.append('arena_name',$('#id-name').value.trim());
+      fd.append('accent',$('#id-accent').value);
+      if($('#id-logo').files[0]) fd.append('logo',$('#id-logo').files[0]);
+      const r=await fetch('/api/config/identity',{method:'POST',body:fd});
+      const d=await r.json();
+      if(r.ok){ document.documentElement.style.setProperty('--accent',d.accent); toast('Identidade salva.'); }
+      else toast(d.error||'Erro ao salvar.',true);
+    });
+
+    // ── Usuários ──
+    const modal=$('#user-modal');
+    function openModal(u){
+      $('#form-user').reset();
+      $('#um-id').value = u? u.id : '';
+      $('#um-title').textContent = u? 'Editar usuário' : 'Novo usuário';
+      $('#um-sub').textContent = u? 'Ajuste papel, acesso ou senha.' : 'Crie um acesso e escolha o que ele pode usar.';
+      $('#um-pass-label').textContent = u? 'Nova senha (deixe em branco para manter)' : 'Senha';
+      $('#um-username').value = u? u.username : '';
+      $('#um-username').disabled = !!u;
+      (u && u.role==='adm' ? $('input[name=um-role][value=adm]') : $('input[name=um-role][value=user]')).checked=true;
+      $$('#um-perms input').forEach(c=>c.checked = u? u.perms.includes(c.value) : false);
+      togglePerms();
+      modal.classList.add('show');
+    }
+    function togglePerms(){
+      const isAdm=$('input[name=um-role]:checked').value==='adm';
+      $('#um-perms-field').style.opacity=isAdm?.4:1;
+      $$('#um-perms input').forEach(c=>c.disabled=isAdm);
+    }
+    $$('input[name=um-role]').forEach(r=>r.addEventListener('change',togglePerms));
+    $('#btn-new-user').addEventListener('click',()=>openModal(null));
+    $('#um-cancel').addEventListener('click',()=>modal.classList.remove('show'));
+    modal.addEventListener('click',e=>{if(e.target===modal)modal.classList.remove('show');});
+
+    async function loadUsers(){
+      const r=await fetch('/api/config/users'); const list=await r.json();
+      const body=$('#users-body'); body.innerHTML='';
+      list.forEach(u=>{
+        const tr=document.createElement('tr');
+        const av = u.photo? `<img class="uav" src="${u.photo}">` : `<span class="uav"><i class="fa-regular fa-user"></i></span>`;
+        const chips = u.role==='adm'
+          ? `<span class="chip">Todos os sistemas</span>`
+          : (u.perms.length? u.perms.map(p=>`<span class="chip">${p[0].toUpperCase()+p.slice(1)}</span>`).join('') : `<span class="chip">Nenhum</span>`);
+        tr.innerHTML=`
+          <td><div style="display:flex;align-items:center;gap:10px">${av}<strong>${u.username}</strong></div></td>
+          <td><span class="badge ${u.role}">${u.role==='adm'?'Admin':'Usuário'}</span></td>
+          <td><div class="chips">${chips}</div></td>
+          <td style="text-align:right;white-space:nowrap">
+            <button class="icon-btn" data-edit="${u.id}" title="Editar"><i class="fa-solid fa-pen"></i></button>
+            <button class="icon-btn del" data-del="${u.id}" title="Excluir"><i class="fa-solid fa-trash"></i></button>
+          </td>`;
+        tr._user=u;
+        body.appendChild(tr);
+      });
+      $$('[data-edit]',body).forEach(b=>b.addEventListener('click',()=>openModal(b.closest('tr')._user)));
+      $$('[data-del]',body).forEach(b=>b.addEventListener('click',()=>delUser(b.dataset.del)));
+    }
+
+    async function delUser(id){
+      if(!confirm('Excluir este usuário? Esta ação não pode ser desfeita.')) return;
+      const r=await fetch('/api/config/users/'+id,{method:'DELETE'});
+      const d=await r.json();
+      if(r.ok){ toast('Usuário removido.'); loadUsers(); } else toast(d.error||'Erro.',true);
+    }
+
+    $('#form-user').addEventListener('submit',async e=>{
+      e.preventDefault();
+      const id=$('#um-id').value;
+      const fd=new FormData();
+      fd.append('role',$('input[name=um-role]:checked').value);
+      $$('#um-perms input:checked').forEach(c=>fd.append('perms',c.value));
+      const pw=$('#um-password').value;
+      if(pw) fd.append('password',pw);
+      if($('#um-photo').files[0]) fd.append('photo',$('#um-photo').files[0]);
+      let url,method;
+      if(id){ url='/api/config/users/'+id; method='PUT'; }
+      else {
+        url='/api/config/users'; method='POST';
+        fd.append('username',$('#um-username').value.trim());
+      }
+      const r=await fetch(url,{method,body:fd});
+      const d=await r.json();
+      if(r.ok){ modal.classList.remove('show'); toast(id?'Usuário atualizado.':'Usuário criado.'); loadUsers(); }
+      else toast(d.error||'Erro ao salvar.',true);
+    });
+
+    // ── Backups seg ──
+    $$('#bk-seg button').forEach(b=>b.addEventListener('click',()=>{
+      $$('#bk-seg button').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      ['aulas','ranking','comandas'].forEach(s=>{ $('#bk-'+s).style.display = b.dataset.sys===s?'block':'none'; });
+    }));
+    $('#btn-restore-aulas').addEventListener('click',()=>{ window.location.href='/restore'; });
+
+    // Restore do Ranking (substitui tudo) — inline via fetch
+    $('#btn-restore-ranking').addEventListener('click',()=>$('#rk-restore-file').click());
+    $('#rk-restore-file').addEventListener('change',async e=>{
+      const f=e.target.files[0]; if(!f) return;
+      if(!confirm('Restaurar o backup do Ranking vai SUBSTITUIR todos os dados atuais (jogadores, partidas e campeonatos). Deseja continuar?')){ e.target.value=''; return; }
+      const fd=new FormData(); fd.append('backup_file',f);
+      try{
+        const r=await fetch('/ranking/api/restore',{method:'POST',body:fd});
+        const d=await r.json();
+        if(r.ok) toast(`Ranking restaurado (${d.total} registros).`);
+        else toast(d.detail||'Erro ao restaurar.',true);
+      }catch(err){ toast('Falha na conexão.',true); }
+      e.target.value='';
+    });
+
+    // Restore do Comandas (substitui tudo) — inline via fetch
+    $('#btn-restore-comandas').addEventListener('click',()=>$('#cm-restore-file').click());
+    $('#cm-restore-file').addEventListener('change',async e=>{
+      const f=e.target.files[0]; if(!f) return;
+      if(!confirm('Restaurar o backup do Comandas vai SUBSTITUIR todos os dados atuais (produtos, clientes e comandas). Deseja continuar?')){ e.target.value=''; return; }
+      const fd=new FormData(); fd.append('backup_file',f);
+      try{
+        const r=await fetch('/comandas/api/restore',{method:'POST',body:fd});
+        const d=await r.json();
+        if(r.ok) toast(`Comandas restaurado (${d.total} registros).`);
+        else toast(d.detail||'Erro ao restaurar.',true);
+      }catch(err){ toast('Falha na conexão.',true); }
+      e.target.value='';
+    });
+
+    // ── Atividade global ──
+    let atvSys = '';
+    const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    async function loadActivity(){
+      const list = $('#atv-list');
+      list.innerHTML = '<p class="hint" style="padding:10px 0">Carregando...</p>';
+      try{
+        const r = await fetch('/api/activity' + (atvSys ? '?system=' + atvSys : ''));
+        const logs = await r.json();
+        if(!logs.length){ list.innerHTML = '<p class="hint" style="padding:10px 0">Nenhum registro ainda.</p>'; return; }
+        list.innerHTML = logs.map(l => `
+          <div class="atv-row">
+            <span class="atv-sys ${esc(l.system)}">${esc(l.system)}</span>
+            <div class="atv-desc"><span class="atv-user">${esc(l.user)}</span> · ${esc(l.description)}</div>
+            <span class="atv-meta">${esc(l.date)}</span>
+          </div>`).join('');
+      }catch(e){ list.innerHTML = '<p class="hint" style="padding:10px 0">Erro ao carregar atividade.</p>'; }
+    }
+    $$('#atv-seg button').forEach(b=>b.addEventListener('click',()=>{
+      $$('#atv-seg button').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active'); atvSys = b.dataset.sys; loadActivity();
+    }));
+    // carrega quando a aba abre
+    $$('.tab').forEach(b=>b.addEventListener('click',()=>{ if(b.dataset.tab==='atividade') loadActivity(); }));
+
+    loadUsers();
+  </script>
+</body>
+</html>
