@@ -36,7 +36,6 @@ python -m nuitka --standalone --mingw64 ^
   --include-data-dir=ranking_static=ranking_static ^
   --include-data-dir=comandas_static=comandas_static ^
   --include-data-dir=relatorios_static=relatorios_static ^
-  --include-package=webview ^
   --windows-icon-from-ico=static\logo.ico ^
   --output-filename="Arena AMP.exe" ^
   --company-name="Fernando Prestes Godinho" ^
@@ -47,8 +46,15 @@ python -m nuitka --standalone --mingw64 ^
   run_desktop.py
 
 echo.
-echo ============================================================
-echo  PRONTO! App em:  run_desktop.dist\Arena AMP.exe
-echo  Instalador: abra o installer.iss no Inno Setup (F9).
-echo ============================================================
+if exist "run_desktop.dist\Arena AMP.exe" (
+  echo ============================================================
+  echo  PRONTO! App em:  run_desktop.dist\Arena AMP.exe
+  echo  Instalador: abra o installer.iss no Inno Setup ^(F9^).
+  echo ============================================================
+) else (
+  echo ============================================================
+  echo  FALHOU! O .exe NAO foi gerado. Veja o erro FATAL acima.
+  echo  Nada foi criado em run_desktop.dist. Me mande o erro.
+  echo ============================================================
+)
 pause

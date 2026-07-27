@@ -134,7 +134,7 @@ def _gate_page():
         keep = False
     if not keep:
         logout_user()
-    return GATE_HTML.replace('__SUPPORT__', SUPPORT_CONTACT)
+    return GATE_HTML.replace('__TITLEBAR__', '').replace('__SUPPORT__', SUPPORT_CONTACT)
 
 
 @flask_app.route('/_gate/state')
@@ -244,6 +244,10 @@ def _find_edge():
 def _open_window_edge(url):
     """Abre via Edge --app e retorna imediatamente (fire-and-forget). O watchdog
     cuida do fim (batimento /_beat). É o fallback robusto."""
+    # O watchdog só faz sentido no caminho Edge (fire-and-forget). Na janela
+    # nativa NÃO usamos ele — senão, ao minimizar, os beats poderiam parar e o
+    # app se encerraria sozinho. Lá o webview.start() já cuida do fechar.
+    threading.Thread(target=_watchdog, daemon=True).start()
     edge = _find_edge()
     if edge:
         profile = os.path.join(_local_data_dir(), 'edge-profile')
@@ -267,31 +271,18 @@ def _open_window_edge(url):
 
 
 def _open_window(url):
-    """Tenta a janela NATIVA (pywebview). webview.start() BLOQUEIA a thread
-    principal até a janela fechar — quando fecha, encerramos o app. Qualquer
-    problema (import/runtime) cai pro Edge --app (fire-and-forget)."""
-    try:
-        import webview
-    except Exception as e:
-        _log('pywebview indisponível (' + repr(e) + ') — usando Edge --app')
-        _open_window_edge(url)
-        return False
-    try:
-        _log('abrindo janela nativa (pywebview)')
-        webview.create_window(_window_title(), url, width=1180, height=800, min_size=(940, 640))
-        webview.start()   # bloqueia até a janela fechar
-        _log('janela nativa fechada — encerrando')
-        os._exit(0)
-    except Exception as e:
-        _log('falha na janela nativa (' + repr(e) + ') — caindo pro Edge --app')
-        _open_window_edge(url)
-        return False
-    return True
+    """Abre a janela do app via Edge --app (janela dedicada, sem abas/barra de
+    endereço). É o caminho único e robusto — o pywebview foi descartado porque
+    depende do pythonnet, que não empacota de forma confiável com o Nuitka."""
+    _open_window_edge(url)
+
+
 
 
 GATE_HTML = """
 <!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0A1420">
 <title>Arena AMP</title>
 <style>
   *{box-sizing:border-box;} body{margin:0;font-family:system-ui,Segoe UI,sans-serif;
@@ -311,6 +302,7 @@ GATE_HTML = """
     border-radius:50%;animation:s .7s linear infinite;vertical-align:middle;} @keyframes s{to{transform:rotate(360deg)}}
   .spin.big{width:44px;height:44px;border-width:4px;border-color:#f97316;border-top-color:transparent;}
 </style></head><body>
+__TITLEBAR__
 <div class="box" id="box">
   <div class="logo" id="logo"><span class="spin big"></span></div>
   <h1 id="title">Verificando licença…</h1>
@@ -443,7 +435,8 @@ def main():
     _create_mutex()
     base = _start_flask_once()
     _log('flask no ar em ' + base)
-    threading.Thread(target=_watchdog, daemon=True).start()
+    # OBS: o watchdog é iniciado dentro de _open_window_edge (só no fallback Edge).
+    # Na janela nativa (pywebview) ele não roda — o webview.start() controla o fim.
     _open_window(base + '_gate')
     _log('janela solicitada; mantendo servidor vivo')
     # Mantém o processo vivo enquanto a janela estiver aberta.
