@@ -1,9 +1,11 @@
 r"""
 run_desktop.py — Ponto de entrada do app instalável Arena AMP.
 
-Abre o sistema numa JANELA PRÓPRIA do Microsoft Edge (modo --app: sem barra de
-endereço nem abas, com o ícone da Arena). Não depende de pywebview/pythonnet,
-o que deixa a compilação protegida (Nuitka) simples e robusta.
+Abre o sistema numa JANELA NATIVA própria (pywebview) — sem a barra do Edge,
+título com o nome da arena e ícone da marca. Se o pywebview não estiver
+disponível/empacotado (ou falhar em runtime), cai automaticamente pro Microsoft
+Edge em modo --app, que é o caminho antigo e robusto. No pior caso, abre igual
+antes — o cliente nunca fica sem janela.
 
 Sequência:
   1. Sobe o Flask local (127.0.0.1) numa porta livre.
@@ -122,11 +124,16 @@ def _start_flask_once():
 # ── Portaria de licença servida pelo Flask ────────────────────────────────────
 @flask_app.route('/_gate')
 def _gate_page():
-    # Força logout a cada abertura do app — o perfil do Edge é persistente
-    # e reaproveita o mesmo SECRET_KEY entre execuções, então sem isso o
-    # login ficaria "lembrado" de uma sessão pra outra (PC compartilhado
-    # não pode abrir já logado como quem usou por último).
-    logout_user()
+    # Por padrão força logout a cada abertura (PC compartilhado não pode abrir
+    # já logado como quem usou por último). MAS se o usuário marcou "Manter
+    # conectado neste computador", respeita: não desloga, e ele entra direto.
+    try:
+        from app import get_setting
+        keep = (get_setting('remember_login', '') == '1')
+    except Exception:
+        keep = False
+    if not keep:
+        logout_user()
     return GATE_HTML.replace('__SUPPORT__', SUPPORT_CONTACT)
 
 
@@ -207,7 +214,21 @@ def _watchdog():
         time.sleep(3)
 
 
-# ── Janela própria (Edge --app, com fallback pro navegador padrão) ────────────
+# ── Janela do app ─────────────────────────────────────────────────────────────
+# Preferência: janela NATIVA própria (pywebview) — sem a barra do Edge, título
+# com o nome da arena, ícone da marca. Se o pywebview não estiver disponível ou
+# falhar (ex.: empacotamento/WebView2), cai automaticamente pro Edge --app, que
+# é o caminho antigo e robusto. Assim, no pior caso, o app abre igual antes.
+def _window_title():
+    try:
+        from app import get_setting
+        with flask_app.app_context():
+            nome = (get_setting('arena_name', '') or '').strip()
+        return nome or 'Arena AMP'
+    except Exception:
+        return 'Arena AMP'
+
+
 def _find_edge():
     candidates = [
         r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
@@ -220,8 +241,9 @@ def _find_edge():
     return None
 
 
-def _open_window(url):
-    """Abre a janela e retorna imediatamente (fire-and-forget). O watchdog cuida do fim."""
+def _open_window_edge(url):
+    """Abre via Edge --app e retorna imediatamente (fire-and-forget). O watchdog
+    cuida do fim (batimento /_beat). É o fallback robusto."""
     edge = _find_edge()
     if edge:
         profile = os.path.join(_local_data_dir(), 'edge-profile')
@@ -242,6 +264,29 @@ def _open_window(url):
         webbrowser.open(url)
     except Exception as e:
         _log('falha ao abrir navegador: ' + repr(e))
+
+
+def _open_window(url):
+    """Tenta a janela NATIVA (pywebview). webview.start() BLOQUEIA a thread
+    principal até a janela fechar — quando fecha, encerramos o app. Qualquer
+    problema (import/runtime) cai pro Edge --app (fire-and-forget)."""
+    try:
+        import webview
+    except Exception as e:
+        _log('pywebview indisponível (' + repr(e) + ') — usando Edge --app')
+        _open_window_edge(url)
+        return False
+    try:
+        _log('abrindo janela nativa (pywebview)')
+        webview.create_window(_window_title(), url, width=1180, height=800, min_size=(940, 640))
+        webview.start()   # bloqueia até a janela fechar
+        _log('janela nativa fechada — encerrando')
+        os._exit(0)
+    except Exception as e:
+        _log('falha na janela nativa (' + repr(e) + ') — caindo pro Edge --app')
+        _open_window_edge(url)
+        return False
+    return True
 
 
 GATE_HTML = """

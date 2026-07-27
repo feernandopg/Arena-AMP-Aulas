@@ -176,8 +176,13 @@
         {% endif %}
         {% if not modules %}
         <a class="hub-locked" id="hub-locked" href="#">
+          {% if plan.plan == 'demo_expirada' %}
+          <span><i class="fa-solid fa-hourglass-end"></i> Seu <b>período de teste terminou</b>. Assine para reativar todos os módulos.</span>
+          <span class="cta">Assinar agora <i class="fa-solid fa-arrow-right"></i></span>
+          {% else %}
           <span><i class="fa-solid fa-lock"></i> Seu acesso está <b>bloqueado</b>. Assine o Premium para liberar todos os módulos.</span>
           <span class="cta">Ver planos <i class="fa-solid fa-arrow-right"></i></span>
+          {% endif %}
         </a>
         {% endif %}
         <div class="hub-promos" id="hub-promos" style="display:none" data-wa="{{ plan.contato.whatsapp_link }}">
@@ -285,7 +290,7 @@
 
     <footer class="hub-foot">
       <span class="hf-ver">Arena AMP{% if app_version %} · v{{ app_version }}{% endif %}</span>
-      <a class="hf-sig" id="hub-sobre" href="#">Desenvolvido por <b>Fernando Godinho</b> <i class="fa-solid fa-chevron-right"></i></a>
+      <a class="hf-sig" id="hub-sobre" href="#">Desenvolvido por <b>Fernando Prestes Godinho</b> <i class="fa-solid fa-chevron-right"></i></a>
     </footer>
   </div>
 
@@ -327,7 +332,7 @@
       </div>
       <div class="so-body">
         <div class="so-eye">Projetado e desenvolvido por</div>
-        <div class="so-sign">Fernando Godinho</div>
+        <div class="so-sign">Fernando Prestes Godinho</div>
         <div class="so-rule"></div>
         <div class="so-rows">
           <a class="so-row" href="{{ plan.contato.whatsapp_link }}" target="_blank" rel="noopener"><span><i class="fa-brands fa-whatsapp"></i> WhatsApp</span><b>{{ plan.contato.whatsapp }}</b></a>
@@ -417,14 +422,27 @@
       document.addEventListener('visibilitychange', function(){ if (!document.hidden) loadCaixa(); });
       window.addEventListener('focus', loadCaixa);
 
-      // Banner promocional (imagem), configurado no /admin — vale pra todos os produtos.
+      // Banners promocionais (lista), configurados no /admin — valem pra todos os
+      // produtos. Se houver mais de um, faz rotação automática a cada 6s.
       fetch('/api/promo').then(function(r){ return r.json(); }).then(function(p){
-        if (!p || !p.image_url) return;
+        var banners = (p && p.banners && p.banners.length) ? p.banners
+                    : (p && p.image_url ? [{image_url: p.image_url, wa_text: p.wa_text}] : []);
+        if (!banners.length) return;
         var box = document.getElementById('hub-promos');
         var wa = box.getAttribute('data-wa');
-        document.getElementById('promo-img').src = p.image_url;
-        document.getElementById('promo-link').href = wa + '?text=' + encodeURIComponent(p.wa_text || '');
+        var img = document.getElementById('promo-img');
+        var link = document.getElementById('promo-link');
+        var i = 0;
+        function paint(){
+          var b = banners[i];
+          img.src = b.image_url;
+          link.href = wa + '?text=' + encodeURIComponent(b.wa_text || '');
+        }
+        paint();
         box.style.display = '';
+        if (banners.length > 1) {
+          setInterval(function(){ i = (i + 1) % banners.length; paint(); }, 6000);
+        }
       }).catch(function(){});
     })();
   </script>

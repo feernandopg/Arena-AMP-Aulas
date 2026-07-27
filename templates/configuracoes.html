@@ -204,6 +204,22 @@
           <p class="hint" style="margin-top:14px;margin-bottom:0">O backup salva produtos, clientes, categorias e comandas. <strong>Atenção:</strong> restaurar <em>substitui</em> todos os dados atuais do Comandas pelos do arquivo.</p>
         </div>
       </div>
+
+      <div class="card">
+        <h2>Manutenção do sistema</h2>
+        <p class="hint">Otimiza o banco de dados e limpa registros antigos pra manter o sistema rápido. Não apaga alunos, comandas nem pagamentos — só faz uma limpeza técnica.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-primary" id="btn-manutencao"><i class="fa-solid fa-broom"></i> Otimizar agora</button>
+          <span id="mnt-msg" class="hint" style="margin:0"></span>
+        </div>
+        <p class="hint" style="margin-top:12px;margin-bottom:0">Recomendado rodar de vez em quando (ex.: 1× por mês). Um backup automático é feito antes.</p>
+
+        <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--line, #ECEAE6)">
+          <h3 style="font-size:15px;font-weight:800;color:#B03A3A;margin:0 0 4px"><i class="fa-solid fa-triangle-exclamation"></i> Zerar dados</h3>
+          <p class="hint" style="margin-top:0">Apaga <strong>todos os dados</strong> de alunos, turmas, comandas, ranking e atividade — deixando o sistema como novo. <strong>Mantém</strong> seus usuários/login e a identidade da arena. Um backup é feito antes. Não dá pra desfazer.</p>
+          <button class="btn btn-danger" id="btn-reset"><i class="fa-solid fa-trash-can"></i> Zerar dados do sistema</button>
+        </div>
+      </div>
     </section>
 
     <!-- ATIVIDADE (log global do ecossistema) -->
@@ -387,6 +403,41 @@
       ['aulas','ranking','comandas'].forEach(s=>{ $('#bk-'+s).style.display = b.dataset.sys===s?'block':'none'; });
     }));
     $('#btn-restore-aulas').addEventListener('click',()=>{ window.location.href='/restore'; });
+
+    // ── Manutenção preventiva (VACUUM + limpar logs antigos) ──
+    $('#btn-manutencao').addEventListener('click',async()=>{
+      var btn=$('#btn-manutencao'), msg=$('#mnt-msg');
+      if(!confirm('Otimizar o sistema agora? Um backup é feito antes. Não apaga seus dados.')) return;
+      btn.disabled=true; var orig=btn.innerHTML; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Otimizando…'; msg.textContent='';
+      try{
+        const r=await fetch('/api/manutencao',{method:'POST'});
+        const d=await r.json();
+        if(r.ok){
+          var parts=[];
+          if(d.logs_removidos) parts.push(d.logs_removidos+' registro(s) antigo(s) removido(s)');
+          if(d.espaco_liberado_kb) parts.push(d.espaco_liberado_kb+' KB liberados');
+          toast('Sistema otimizado.'+(parts.length?' '+parts.join(' · '):''));
+          msg.textContent = parts.length ? parts.join(' · ') : 'Tudo já estava otimizado.';
+        } else { toast(d.error||'Falha na manutenção.',true); }
+      }catch(err){ toast('Falha na conexão.',true); }
+      btn.disabled=false; btn.innerHTML=orig;
+    });
+
+    // ── Zerar dados (padrão de fábrica) — destrutivo, exige digitar ZERAR ──
+    $('#btn-reset').addEventListener('click',async()=>{
+      var v=prompt('Isto vai APAGAR todos os alunos, turmas, comandas, ranking e atividade (mantém login e identidade). Um backup é feito antes.\n\nPara confirmar, digite ZERAR:');
+      if(v===null) return;
+      if((v||'').trim().toUpperCase()!=='ZERAR'){ toast('Confirmação incorreta. Nada foi apagado.',true); return; }
+      var btn=$('#btn-reset'), orig=btn.innerHTML;
+      btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Zerando…';
+      try{
+        const r=await fetch('/api/factory-reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirm:'ZERAR'})});
+        const d=await r.json();
+        if(r.ok){ toast('Sistema zerado ('+(d.registros_apagados||0)+' registros). Recarregando…'); setTimeout(()=>location.reload(),1400); }
+        else toast(d.error||'Falha ao zerar.',true);
+      }catch(err){ toast('Falha na conexão.',true); }
+      btn.disabled=false; btn.innerHTML=orig;
+    });
 
     // Restore do Ranking (substitui tudo) — inline via fetch
     $('#btn-restore-ranking').addEventListener('click',()=>$('#rk-restore-file').click());

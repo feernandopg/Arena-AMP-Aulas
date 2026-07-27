@@ -75,6 +75,10 @@ db = SQLAlchemy(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+# "Lembrar meu acesso": cookie persistente de 1 ano (o perfil do WebView é
+# fixo por instalação, então o login se mantém entre aberturas do app).
+app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=365)
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=365)
 
 enrollments = db.Table('enrollments',
     db.Column('student_id', db.Integer, db.ForeignKey('student.id'), primary_key=True),
@@ -378,13 +382,117 @@ def api_banner():
 @app.route('/api/promo')
 @login_required
 def api_promo():
-    """Banner promocional GLOBAL (imagem), configurado no /admin do
-    license-server. Vale pra todos os produtos (arena, oficina...)."""
+    """Banners promocionais GLOBAIS, configurados no /admin do license-server.
+    Valem pra todos os produtos (arena, oficina...)."""
     try:
         import license_client
         return jsonify(license_client.get_promo())
     except Exception:
-        return jsonify({'image_url': '', 'wa_text': ''})
+        return jsonify({'banners': [], 'image_url': '', 'wa_text': ''})
+
+@app.route('/api/prices')
+@login_required
+def api_prices():
+    """Preços vigentes (sistema/site) definidos no /admin do license-server,
+    pra o modal de planos exibir o valor certo. {} = usa o padrão embutido."""
+    if os.environ.get('AMP_DEV'):
+        return jsonify({})
+    try:
+        import license_client
+        return jsonify(license_client.get_prices())
+    except Exception:
+        return jsonify({})
+
+@app.route('/api/manutencao', methods=['POST'])
+@login_required
+def api_manutencao():
+    """Manutenção preventiva: faz backup, remove registros de atividade antigos
+    (>180 dias) e otimiza o banco (VACUUM/ANALYZE). NÃO apaga alunos, comandas,
+    pagamentos etc. — só limpeza técnica pra manter o sistema rápido."""
+    if not adm_required():
+        return jsonify({'error': 'Acesso restrito ao administrador.'}), 403
+    # Segurança: um backup antes de qualquer limpeza.
+    try:
+        auto_backup()
+    except Exception:
+        pass
+    removed = 0
+    try:
+        corte = (datetime.now() - timedelta(days=180)).strftime('%Y-%m-%d %H:%M:%S')
+        q = ActivityLog.query.filter(ActivityLog.created_at.isnot(None),
+                                     ActivityLog.created_at < corte)
+        removed = q.count()
+        q.delete(synchronize_session=False)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    freed = 0
+    try:
+        if db.engine.url.drivername.startswith('sqlite') and db.engine.url.database:
+            import sqlite3
+            path = db.engine.url.database
+            before = os.path.getsize(path) if os.path.exists(path) else 0
+            db.session.close()
+            db.engine.dispose()   # solta o lock antes do VACUUM
+            con = sqlite3.connect(path)
+            con.execute('VACUUM')
+            con.execute('ANALYZE')
+            con.close()
+            after = os.path.getsize(path) if os.path.exists(path) else 0
+            freed = max(0, before - after)
+    except Exception:
+        pass
+    return jsonify({'ok': True, 'logs_removidos': removed,
+                    'espaco_liberado_kb': round(freed / 1024.0, 1)})
+
+
+@app.route('/api/factory-reset', methods=['POST'])
+@login_required
+def api_factory_reset():
+    """Zera os DADOS operacionais (alunos, turmas, comandas, ranking, atividade)
+    de TODOS os módulos, mantendo apenas os usuários/login e a identidade da
+    arena (nome, logo, cor). Faz backup antes. Ação destrutiva — exige confirmação."""
+    if not adm_required():
+        return jsonify({'error': 'Acesso restrito ao administrador.'}), 403
+    body = request.get_json(silent=True) or {}
+    if (body.get('confirm') or '').strip().upper() != 'ZERAR':
+        return jsonify({'error': 'Confirmação inválida.'}), 400
+    try:
+        auto_backup()
+    except Exception:
+        pass
+    keep = {'users', 'settings'}   # preserva login e identidade da arena
+    apagados = 0
+    try:
+        # ordem reversa de dependência (filhos primeiro) evita conflito de FK
+        for table in reversed(db.metadata.sorted_tables):
+            if table.name in keep:
+                continue
+            apagados += db.session.execute(table.delete()).rowcount or 0
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Falha ao zerar: ' + str(e)}), 500
+    # otimiza depois de esvaziar
+    try:
+        if db.engine.url.drivername.startswith('sqlite') and db.engine.url.database:
+            import sqlite3
+            path = db.engine.url.database
+            db.session.close()
+            db.engine.dispose()
+            con = sqlite3.connect(path)
+            con.execute('VACUUM')
+            con.close()
+    except Exception:
+        pass
+    try:
+        add_activity('Sistema zerado (padrão de fábrica) pelo administrador.',
+                     category='config', action_type='config', system='config')
+        db.session.commit()
+    except Exception:
+        pass
+    return jsonify({'ok': True, 'registros_apagados': apagados})
+
 
 @app.route('/api/plan/dev', methods=['POST'])
 @login_required
@@ -506,18 +614,30 @@ def login():
         return redirect(url_for('shell'))
     error = None
     if request.method == 'POST':
+        remember = bool(request.form.get('remember'))
         user = User.query.filter_by(username=request.form['username']).first()
         if user and user.check_password(request.form['password']):
-            login_user(user)
+            login_user(user, remember=remember)
+            # Grava a preferência: se marcou "lembrar", a portaria (/_gate) não
+            # força logout na próxima abertura e o usuário já entra logado.
+            set_setting('remember_login', '1' if remember else '')
+            set_setting('remember_username', user.username if remember else '')
+            db.session.commit()
             return redirect(url_for('shell'))
         else:
             error = "Usuário ou Senha incorretos"
-    return render_template('login.html', error=error)
+    return render_template('login.html', error=error,
+                           remember_username=get_setting('remember_username', ''),
+                           remember_default=(get_setting('remember_login', '') == '1'))
 
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
+    # Sair de propósito desliga o "manter conectado" — senão a próxima
+    # abertura entraria logada de novo.
+    set_setting('remember_login', '')
+    db.session.commit()
     return redirect(url_for('login'))
 
 def _enabled_modules():
@@ -551,11 +671,50 @@ def _shell_modules():
         out.append({'key': 'config', 'name': 'Configurações', 'icon': 'fa-gear', 'url': '/configuracoes'})
     return out
 
+TERMS_VERSION = '1'   # suba este número se mudar o texto dos termos (reexibe o aceite)
+
+
 @app.route('/')
 @login_required
 def shell():
+    # Força trocar a senha se ainda for a padrão de fábrica (segurança na entrega).
+    try:
+        must_pw = bool(current_user.is_adm and current_user.check_password('admin123'))
+    except Exception:
+        must_pw = False
     return render_template('shell.html', user=current_user, shell_modules=_shell_modules(),
-                           plan=_plan_info(), is_dev=bool(DEV_MODE))
+                           plan=_plan_info(), is_dev=bool(DEV_MODE),
+                           terms_ok=(get_setting('terms_accepted', '') == TERMS_VERSION),
+                           must_set_password=must_pw,
+                           dev_name='Fernando Prestes Godinho')
+
+
+@app.route('/api/account/password', methods=['POST'])
+@login_required
+def api_account_password():
+    """Troca a senha do usuário logado. Usado pra forçar a saída da senha padrão
+    no 1º acesso (segurança) e também disponível pra troca voluntária."""
+    data = request.get_json(silent=True) or {}
+    nova = (data.get('nova') or '')
+    if len(nova) < 6:
+        return jsonify({'error': 'A senha precisa ter ao menos 6 caracteres.'}), 400
+    if nova == 'admin123':
+        return jsonify({'error': 'Escolha uma senha diferente da padrão.'}), 400
+    current_user.set_password(nova)
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/terms/accept', methods=['POST'])
+@login_required
+def api_terms_accept():
+    """Registra o aceite dos Termos de Uso (1ª vez / nova versão). Guarda quem
+    aceitou e quando, pra ter prova do consentimento."""
+    set_setting('terms_accepted', TERMS_VERSION)
+    set_setting('terms_accepted_at', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    set_setting('terms_accepted_by', current_user.username)
+    db.session.commit()
+    return jsonify({'ok': True})
 
 @app.route('/hub')
 @login_required

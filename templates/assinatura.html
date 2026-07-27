@@ -43,14 +43,18 @@
       display:flex;align-items:center;justify-content:center;gap:9px}
     .cta.solid{background:var(--navy);color:#fff}
     .cta.cta-outline{background:#fff;color:var(--navy);border:1.5px solid var(--line)}
-    /* Bloco do Site (assinatura própria) */
-    .site-box{border:1px solid var(--line);border-radius:14px;padding:16px}
-    .site-head{display:flex;align-items:center;gap:12px}
-    .site-ic{width:38px;height:38px;border-radius:11px;background:#EDEBE7;color:var(--faint);display:grid;place-items:center;font-size:16px;flex-shrink:0}
-    .site-ic.on{background:linear-gradient(135deg,var(--gold2),var(--gold));color:#3A2C05}
-    .site-nm{font-size:15px;font-weight:800;letter-spacing:-.2px}
-    .site-pr{text-align:right;font-size:16px;font-weight:800;color:var(--navy);white-space:nowrap}
-    .site-pr small{font-size:11px;font-weight:600;color:var(--muted)}
+    /* Cards de assinatura (Sistema e Site — dois vínculos distintos) */
+    .asub{border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+    .asub.sys{border-color:#D6DEE8;background:linear-gradient(180deg,#F7FAFD,#fff)}
+    .asub-head{display:flex;align-items:center;gap:12px}
+    .asub-ic{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;font-size:17px;flex-shrink:0;background:#EDEBE7;color:var(--faint)}
+    .asub-ic.sys{background:linear-gradient(135deg,var(--navy),#1B3350);color:#fff}
+    .asub-ic.on{background:linear-gradient(135deg,var(--gold2),var(--gold));color:#3A2C05}
+    .asub-nm{font-size:15px;font-weight:800;letter-spacing:-.2px;display:flex;align-items:center;gap:7px}
+    .asub-tag{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:#EEF1F4;padding:2px 7px;border-radius:20px}
+    .asub-sub{font-size:12px;color:var(--muted);margin-top:1px}
+    .asub-pr{text-align:right;font-size:16px;font-weight:800;color:var(--navy);white-space:nowrap}
+    .asub-pr small{font-size:11px;font-weight:600;color:var(--muted)}
     .cta-site{margin-top:14px}
     .empty{text-align:center;color:var(--muted);font-size:13px;padding:6px 0 2px}
     .muted{color:var(--muted);font-size:12.5px;margin-top:14px;text-align:center}
@@ -151,50 +155,59 @@
       }
 
       var h = '';
-      h += '<div class="plan-top">'
-        + '<div class="crown '+crownCls+'"><i class="fa-solid '+((premium||demo)?'fa-crown':'fa-lock')+'"></i></div>'
-        + '<div><div class="plan-nm">'+nome+'</div>'
-        + '<div class="status '+stCls+'"><span class="sdot"></span>'+stTxt+'</div></div></div>';
+      h += '<div class="sec" style="margin-top:0">O que você tem</div>';
 
-      var rows = '';
+      // ── CARD 1: SISTEMA (Arena AMP) — a assinatura do ERP ──
+      var sysRows = '';
       if (premium || demo) {
-        if (info.desde) rows += '<div class="row"><span class="l">Assinante desde</span><span class="v">'+fmtData(info.desde)+'</span></div>';
-        rows += '<div class="row"><span class="l">'+(demo?'Teste termina em':'Próximo vencimento')+'</span><span class="v">'
+        if (info.desde) sysRows += '<div class="row"><span class="l">Assinante desde</span><span class="v">'+fmtData(info.desde)+'</span></div>';
+        sysRows += '<div class="row"><span class="l">'+(demo?'Teste termina em':'Próximo vencimento')+'</span><span class="v">'
               + (exp ? fmtData(exp) : (premium ? 'Sem vencimento' : '—')) + '</span></div>';
-        if (info.ciclo) rows += '<div class="row"><span class="l">Cobrança</span><span class="v">'+info.ciclo+'</span></div>';
+        if (info.ciclo) sysRows += '<div class="row"><span class="l">Cobrança</span><span class="v">'+info.ciclo+'</span></div>';
       }
-      if (rows) h += '<div class="rows">'+rows+'</div>';
+      h += '<div class="asub sys">'
+        + '<div class="asub-head"><span class="asub-ic sys"><i class="fa-solid fa-desktop"></i></span>'
+        + '<div style="flex:1"><div class="asub-nm">Sistema <span class="asub-tag">Arena AMP</span></div>'
+        + '<div class="status '+stCls+'"><span class="sdot"></span>'+stTxt+'</div></div></div>';
+      if (sysRows) h += '<div class="rows" style="margin-top:12px">'+sysRows+'</div>';
+      if (premium && !vencido) {
+        h += '<button class="cta cta-site cta-outline" onclick="abrirPlanos()"><i class="fa-solid fa-arrows-rotate"></i> Renovar ou mudar de plano</button>';
+      } else {
+        h += '<button class="cta cta-site" onclick="abrirPlanos()"><i class="fa-solid fa-crown"></i> '
+          + (vencido ? 'Renovar sistema' : (demo ? 'Assinar o sistema' : 'Assinar o sistema')) + '</button>';
+      }
+      h += '</div>';
 
-      // ── Site profissional: assinatura PRÓPRIA (com seu vencimento) ──
-      if (premium || info.has_site) {
-        var siteAtivo = !!info.site_ativo;
-        var siteExp = info.site_expires_at || '';
-        var siteDesde = info.site_started_at || '';
-        var sd = siteExp ? diasRestantes(siteExp) : null;
-        var sCls, sTxt;
-        if (siteAtivo) { sCls='st-ok'; sTxt = (sd!=null && sd>=0 && sd<=7) ? ('Vence em '+sd+' dia(s)') : 'Ativo'; }
-        else if (info.has_site) { sCls='st-off'; sTxt='Vencido'; }
-        else { sCls='st-warn'; sTxt='Não contratado'; }
-        h += '<div class="sec">Site profissional</div>';
-        h += '<div class="site-box">'
-          + '<div class="site-head"><span class="site-ic '+(siteAtivo?'on':'')+'"><i class="fa-solid fa-globe"></i></span>'
-          + '<div style="flex:1"><div class="site-nm">Site profissional</div>'
-          + '<div class="status '+sCls+'"><span class="sdot"></span>'+sTxt+'</div></div>'
-          + '<div class="site-pr">R$ 20<small>/mês</small></div></div>';
-        var siteRows = '';
-        if (siteDesde) siteRows += '<div class="row"><span class="l">Contratado em</span><span class="v">'+fmtData(siteDesde)+'</span></div>';
-        if (siteExp) siteRows += '<div class="row"><span class="l">Próximo vencimento</span><span class="v">'+fmtData(siteExp)+'</span></div>';
-        if (siteRows) h += '<div class="rows" style="margin-top:12px">'+siteRows+'</div>';
-        // Só mostra "Renovar" perto do vencimento (<=15 dias) ou já vencido —
-        // enquanto está tranquilamente ativo, o botão só confundiria.
-        var podeRenovar = !siteAtivo || (sd != null && sd <= 15);
-        if (premium && podeRenovar) {
-          h += '<button class="cta cta-site" onclick="siteCheckout()"><i class="fa-solid fa-globe"></i> '+(siteAtivo?'Renovar site':'Contratar site')+'</button>';
-        } else if (premium) {
-          h += '<div class="muted" style="margin-top:14px">Renovação liberada a partir de 15 dias antes do vencimento.</div>';
-        }
-        h += '</div>';
+      // ── CARD 2: SITE PROFISSIONAL — assinatura PRÓPRIA (vínculo separado) ──
+      var siteAtivo = !!info.site_ativo;
+      var siteExp = info.site_expires_at || '';
+      var siteDesde = info.site_started_at || '';
+      var sd = siteExp ? diasRestantes(siteExp) : null;
+      var sCls, sTxt;
+      if (siteAtivo) { sCls='st-ok'; sTxt = (sd!=null && sd>=0 && sd<=7) ? ('Vence em '+sd+' dia(s)') : 'Ativo'; }
+      else if (info.has_site) { sCls='st-off'; sTxt='Vencido'; }
+      else { sCls='st-warn'; sTxt='Não contratado'; }
+      h += '<div class="asub">'
+        + '<div class="asub-head"><span class="asub-ic '+(siteAtivo?'on':'')+'"><i class="fa-solid fa-globe"></i></span>'
+        + '<div style="flex:1"><div class="asub-nm">Site profissional</div>'
+        + '<div class="status '+sCls+'"><span class="sdot"></span>'+sTxt+'</div></div>'
+        + '<div class="asub-pr">R$ 20<small>/mês</small></div></div>';
+      var siteRows = '';
+      if (siteDesde) siteRows += '<div class="row"><span class="l">Contratado em</span><span class="v">'+fmtData(siteDesde)+'</span></div>';
+      if (siteExp) siteRows += '<div class="row"><span class="l">Próximo vencimento</span><span class="v">'+fmtData(siteExp)+'</span></div>';
+      if (siteRows) h += '<div class="rows" style="margin-top:12px">'+siteRows+'</div>';
+      if (!info.has_site) {
+        h += '<div class="asub-sub" style="margin-top:10px">Um site sob medida pra sua arena, com manutenção inclusa. É uma assinatura à parte do sistema.</div>';
       }
+      var podeRenovar = !siteAtivo || (sd != null && sd <= 15);
+      if (premium && podeRenovar) {
+        h += '<button class="cta cta-site" onclick="siteCheckout()"><i class="fa-solid fa-globe"></i> '+(siteAtivo?'Renovar site':'Contratar site')+'</button>';
+      } else if (premium) {
+        h += '<div class="muted" style="margin-top:14px">Renovação liberada a partir de 15 dias antes do vencimento.</div>';
+      } else {
+        h += '<div class="muted" style="margin-top:12px">Disponível para assinantes do sistema.</div>';
+      }
+      h += '</div>';
 
       var pgs = info.pagamentos || [];
       if (pgs.length) {
@@ -206,14 +219,8 @@
         });
       }
 
-      if (premium && !vencido) {
-        h += '<button class="cta" onclick="abrirPlanos()"><i class="fa-solid fa-arrows-rotate"></i> Renovar ou mudar de plano</button>';
-        h += '<div class="muted">Precisa de ajuda? Fale com o suporte pelo Hub.</div>';
-      } else {
-        h += '<button class="cta '+((premium||demo)?'':'')+'" onclick="abrirPlanos()"><i class="fa-solid fa-crown"></i> '
-          + (vencido ? 'Renovar assinatura' : (demo ? 'Assinar agora' : 'Ver planos e assinar')) + '</button>';
-        if (!premium && !demo) h += '<div class="empty" style="margin-top:12px">Assine para manter todos os módulos liberados.</div>';
-      }
+      if (!premium && !demo) h += '<div class="empty" style="margin-top:12px">Assine o sistema para manter todos os módulos liberados.</div>';
+      else h += '<div class="muted" style="margin-top:16px">Precisa de ajuda? Fale com o suporte pelo Hub.</div>';
 
       document.getElementById('card').innerHTML = h;
     }

@@ -5,3 +5,6 @@ flask-login
 werkzeug
 cryptography
 nuitka
+# Janela nativa (sem a barra do Edge). No Windows puxa o pythonnet + usa o
+# WebView2. Se por algum motivo não empacotar/rodar, o app cai pro Edge --app.
+pywebview

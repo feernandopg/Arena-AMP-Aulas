@@ -36,11 +36,12 @@ python -m nuitka --standalone --mingw64 ^
   --include-data-dir=ranking_static=ranking_static ^
   --include-data-dir=comandas_static=comandas_static ^
   --include-data-dir=relatorios_static=relatorios_static ^
+  --include-package=webview ^
   --windows-icon-from-ico=static\logo.ico ^
   --output-filename="Arena AMP.exe" ^
   --company-name="Fernando Prestes Godinho" ^
   --product-name="Arena AMP" ^
-  --file-version=3.2 ^
+  --file-version=3.3 ^
   --assume-yes-for-downloads ^
   --remove-output ^
   run_desktop.py

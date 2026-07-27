@@ -41,6 +41,9 @@
         button:hover{filter:brightness(.94)}
         .error{display:flex;align-items:center;gap:9px;color:var(--danger);background:#FBEDED;border:1px solid #F0D6D6;
               padding:10px 13px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:15px}
+        .remember{display:flex;align-items:center;gap:9px;margin:-2px 0 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted)}
+        .remember input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;margin:0;flex-shrink:0}
+        .remember span{user-select:none}
         .foot{margin-top:20px;text-align:center;font-size:11.5px;color:var(--faint);font-weight:500}
         .modulos{display:flex;justify-content:center;gap:16px;margin-top:22px;color:var(--faint);font-size:12px;font-weight:600}
         .modulos span{display:inline-flex;align-items:center;gap:6px}
@@ -67,13 +70,17 @@
                     <div class="field">
                         <label>Usuário</label>
                         <div class="inp"><i class="fa-regular fa-user"></i>
-                        <input type="text" name="username" placeholder="Seu usuário" autocomplete="username" required autofocus></div>
+                        <input type="text" name="username" placeholder="Seu usuário" autocomplete="username" required value="{{ remember_username|default('', true) }}" {% if not remember_username %}autofocus{% endif %}></div>
                     </div>
                     <div class="field">
                         <label>Senha</label>
                         <div class="inp"><i class="fa-solid fa-lock"></i>
-                        <input type="password" name="password" placeholder="Sua senha" autocomplete="current-password" required></div>
+                        <input type="password" name="password" placeholder="Sua senha" autocomplete="current-password" required {% if remember_username %}autofocus{% endif %}></div>
                     </div>
+                    <label class="remember">
+                        <input type="checkbox" name="remember" value="1" {% if remember_default|default(false, true) %}checked{% endif %}>
+                        <span>Manter conectado neste computador</span>
+                    </label>
                     <button type="submit">Entrar <i class="fa-solid fa-arrow-right"></i></button>
                 </form>
                 <div class="foot">Um login, todos os módulos.</div>

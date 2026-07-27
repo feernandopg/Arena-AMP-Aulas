@@ -323,15 +323,26 @@ def subscription_info():
 
 
 def get_promo():
-    """Banner promocional GLOBAL (imagem) do license-server — vale pra todos os
-    produtos. Público, sem assinatura. Falha silenciosa (sem imagem) se o
-    servidor estiver fora do ar. Retorna {'image_url':..., 'wa_text':...}."""
+    """Banners promocionais GLOBAIS do license-server — valem pra todos os
+    produtos. Público, sem assinatura. Falha silenciosa se o servidor estiver
+    fora do ar. Retorna {'banners':[...], 'image_url':..., 'wa_text':...}."""
     try:
         req = urllib.request.Request(LICENSE_SERVER_URL.rstrip('/') + '/api/promo')
         with urllib.request.urlopen(req, timeout=10) as resp:
             return json.loads(resp.read().decode())
     except Exception:
-        return {'image_url': '', 'wa_text': ''}
+        return {'banners': [], 'image_url': '', 'wa_text': ''}
+
+
+def get_prices():
+    """Preços vigentes (sistema/site, em reais) definidos no /admin. Público.
+    Falha silenciosa → {} (o app usa os preços padrão embutidos)."""
+    try:
+        req = urllib.request.Request(LICENSE_SERVER_URL.rstrip('/') + '/api/prices')
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read().decode())
+    except Exception:
+        return {}
 
 
 def get_modules():
