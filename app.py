@@ -671,9 +671,6 @@ def _shell_modules():
         out.append({'key': 'config', 'name': 'Configurações', 'icon': 'fa-gear', 'url': '/configuracoes'})
     return out
 
-TERMS_VERSION = '1'   # suba este número se mudar o texto dos termos (reexibe o aceite)
-
-
 @app.route('/')
 @login_required
 def shell():
@@ -682,11 +679,11 @@ def shell():
         must_pw = bool(current_user.is_adm and current_user.check_password('admin123'))
     except Exception:
         must_pw = False
+    # Termos agora vêm do license-server (editáveis no /admin) e o aceite é
+    # decidido no shell.html via /api/terms — não passamos mais terms_ok aqui.
     return render_template('shell.html', user=current_user, shell_modules=_shell_modules(),
                            plan=_plan_info(), is_dev=bool(DEV_MODE),
-                           terms_ok=(get_setting('terms_accepted', '') == TERMS_VERSION),
-                           must_set_password=must_pw,
-                           dev_name='Fernando Prestes Godinho')
+                           must_set_password=must_pw)
 
 
 @app.route('/api/account/password', methods=['POST'])
@@ -705,15 +702,41 @@ def api_account_password():
     return jsonify({'ok': True})
 
 
+@app.route('/api/terms')
+@login_required
+def api_terms():
+    """Termos de Uso vigentes (do license-server) + a versão que ESTE cliente já
+    aceitou. O shell compara: se a versão mudou, reexibe o modal de aceite."""
+    if DEV_MODE:
+        return jsonify({'version': '0', 'html': '<p>Termos (modo dev).</p>',
+                        'accepted': get_setting('terms_accepted', '')})
+    try:
+        import license_client
+        t = license_client.get_terms() or {}
+    except Exception:
+        t = {}
+    t['accepted'] = get_setting('terms_accepted', '')
+    return jsonify(t)
+
+
 @app.route('/api/terms/accept', methods=['POST'])
 @login_required
 def api_terms_accept():
-    """Registra o aceite dos Termos de Uso (1ª vez / nova versão). Guarda quem
-    aceitou e quando, pra ter prova do consentimento."""
-    set_setting('terms_accepted', TERMS_VERSION)
+    """Registra localmente o aceite (versão vinda do servidor) e reporta ao
+    license-server pra você ver no /admin quem aceitou e quando."""
+    version = ((request.get_json(silent=True) or {}).get('version') or '').strip()
+    if not version:
+        return jsonify({'error': 'versão ausente'}), 400
+    set_setting('terms_accepted', version)
     set_setting('terms_accepted_at', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
     set_setting('terms_accepted_by', current_user.username)
     db.session.commit()
+    if not DEV_MODE:
+        try:
+            import license_client
+            license_client.report_terms_accept(version)
+        except Exception:
+            pass
     return jsonify({'ok': True})
 
 @app.route('/hub')
@@ -1266,6 +1289,50 @@ def relatorio_aulas():
 
 # ── MIGRATE (safe — keeps all data) ──────────────────────────────────────────
 
+def _auto_migrate():
+    """Adiciona automaticamente as colunas que faltam em tabelas já existentes,
+    comparando os modelos atuais com o banco. Roda no STARTUP, antes de qualquer
+    consulta — senão, depois de uma atualização que inclui um campo novo, o app
+    crasharia com 'no such column' (o db.create_all NÃO altera tabelas antigas).
+    Só adiciona (nunca remove/renomeia); os dados do cliente ficam intactos."""
+    try:
+        from sqlalchemy import inspect as sa_inspect, text
+        insp = sa_inspect(db.engine)
+        existing = set(insp.get_table_names())
+        with db.engine.begin() as conn:
+            for table in db.metadata.sorted_tables:
+                if table.name not in existing:
+                    continue  # tabela nova → db.create_all() cria inteira depois
+                have = {c['name'] for c in insp.get_columns(table.name)}
+                for col in table.columns:
+                    if col.name in have:
+                        continue
+                    try:
+                        coltype = col.type.compile(dialect=db.engine.dialect)
+                    except Exception:
+                        coltype = 'VARCHAR'
+                    # adiciona como NULLABLE (evita erro do SQLite com NOT NULL
+                    # sem default); o modelo cuida do default em novos inserts.
+                    try:
+                        conn.execute(text('ALTER TABLE "%s" ADD COLUMN "%s" %s'
+                                          % (table.name, col.name, coltype)))
+                    except Exception:
+                        continue
+                    # aplica o default do modelo nas linhas ANTIGAS (só se for um
+                    # valor simples), pra elas não ficarem com NULL indevido.
+                    d = getattr(col, 'default', None)
+                    if d is not None and getattr(d, 'is_scalar', False):
+                        try:
+                            conn.execute(
+                                text('UPDATE "%s" SET "%s" = :v WHERE "%s" IS NULL'
+                                     % (table.name, col.name, col.name)),
+                                {'v': d.arg})
+                        except Exception:
+                            pass
+    except Exception:
+        pass
+
+
 @app.route('/migrate')
 @login_required
 def migrate():
@@ -1578,5 +1645,6 @@ except Exception as _cm_err:
 
 if __name__ == '__main__':
     with app.app_context():
+        _auto_migrate()
         db.create_all()
     app.run(host='127.0.0.1', debug=False)

@@ -345,6 +345,31 @@ def get_prices():
         return {}
 
 
+def get_terms():
+    """Termos de Uso vigentes (versão + HTML), definidos no /admin. Público.
+    Retorna {'version':..., 'html':...} ou {} se o servidor não responder."""
+    try:
+        req = urllib.request.Request(LICENSE_SERVER_URL.rstrip('/') + '/api/terms')
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read().decode())
+    except Exception:
+        return {}
+
+
+def report_terms_accept(version):
+    """Avisa o license-server que este cliente aceitou os termos (pra aparecer
+    no /admin quem aceitou e quando). Falha silenciosa."""
+    try:
+        body = json.dumps({'license_key': current_key(), 'machine_id': get_machine_id(),
+                           'version': version}).encode()
+        req = urllib.request.Request(LICENSE_SERVER_URL.rstrip('/') + '/api/terms/accept',
+                                     data=body, headers={'Content-Type': 'application/json'}, method='POST')
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read().decode())
+    except Exception:
+        return {}
+
+
 def get_modules():
     """Módulos liberados — lidos do payload ASSINADO e re-verificados.
     Licença inválida/adulterada/expirada → lista vazia (tudo bloqueado)."""

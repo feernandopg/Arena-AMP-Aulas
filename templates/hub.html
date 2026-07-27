@@ -148,6 +148,7 @@
         padding:13px 16px;border-radius:12px;text-decoration:none;font-size:13px;font-weight:600}
       .hub-demo{background:#FFF6EE;border:1px solid #FBE0C8;color:#9A5A1A}
       .hub-locked{background:#FBEDED;border:1px solid #F0D6D6;color:#B03A3A}
+      .hub-notice{margin-bottom:14px}
       .hub-demo .cta,.hub-locked .cta{white-space:nowrap;display:inline-flex;align-items:center;gap:7px;font-weight:800}
       .hub-demo:hover .cta,.hub-locked:hover .cta{text-decoration:underline}
       @media(max-width:760px){.hero{grid-template-columns:1fr;gap:16px}
@@ -168,23 +169,6 @@
           <i class="fa-solid fa-bullhorn"></i><span id="hub-banner-txt"></span>
           <button id="hub-banner-x" title="Dispensar"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        {% if plan.plan == 'demo' %}
-        <a class="hub-demo" id="hub-demo" href="#">
-          <span><i class="fa-solid fa-hourglass-half"></i> Você está no <b>período de teste</b>{% if plan.demo_days_left is not none %} — <b>{{ plan.demo_days_left }} dia(s)</b> restante(s){% endif %}.</span>
-          <span class="cta">Assinar agora <i class="fa-solid fa-arrow-right"></i></span>
-        </a>
-        {% endif %}
-        {% if not modules %}
-        <a class="hub-locked" id="hub-locked" href="#">
-          {% if plan.plan == 'demo_expirada' %}
-          <span><i class="fa-solid fa-hourglass-end"></i> Seu <b>período de teste terminou</b>. Assine para reativar todos os módulos.</span>
-          <span class="cta">Assinar agora <i class="fa-solid fa-arrow-right"></i></span>
-          {% else %}
-          <span><i class="fa-solid fa-lock"></i> Seu acesso está <b>bloqueado</b>. Assine o Premium para liberar todos os módulos.</span>
-          <span class="cta">Ver planos <i class="fa-solid fa-arrow-right"></i></span>
-          {% endif %}
-        </a>
-        {% endif %}
         <div class="hub-promos" id="hub-promos" style="display:none" data-wa="{{ plan.contato.whatsapp_link }}">
           <a class="hub-promo-img" id="promo-link" href="#" target="_blank" rel="noopener">
             <img id="promo-img" src="" alt="Divulgação">
@@ -192,6 +176,23 @@
         </div>
       </div>
     </div>
+    {% if plan.plan == 'demo' %}
+    <a class="hub-notice hub-demo" id="hub-demo" href="#">
+      <span><i class="fa-solid fa-hourglass-half"></i> Você está no <b>período de teste</b>{% if plan.demo_days_left is not none %} — <b>{{ plan.demo_days_left }} dia(s)</b> restante(s){% endif %}.</span>
+      <span class="cta">Assinar agora <i class="fa-solid fa-arrow-right"></i></span>
+    </a>
+    {% endif %}
+    {% if not modules %}
+    <a class="hub-notice hub-locked" id="hub-locked" href="#">
+      {% if plan.plan == 'demo_expirada' %}
+      <span><i class="fa-solid fa-hourglass-end"></i> Seu <b>período de teste terminou</b>. Assine para reativar todos os módulos.</span>
+      <span class="cta">Assinar agora <i class="fa-solid fa-arrow-right"></i></span>
+      {% else %}
+      <span><i class="fa-solid fa-lock"></i> Seu acesso está <b>bloqueado</b>. Assine o Premium para liberar todos os módulos.</span>
+      <span class="cta">Ver planos <i class="fa-solid fa-arrow-right"></i></span>
+      {% endif %}
+    </a>
+    {% endif %}
     <div class="cards">
       {% set com_ok = ('comandas' in modules) and (user.is_adm or user.can('comandas')) %}
       {% if com_ok %}

@@ -40,7 +40,7 @@ python -m nuitka --standalone --mingw64 ^
   --output-filename="Arena AMP.exe" ^
   --company-name="Fernando Prestes Godinho" ^
   --product-name="Arena AMP" ^
-  --file-version=3.3 ^
+  --file-version=3.4 ^
   --assume-yes-for-downloads ^
   --remove-output ^
   run_desktop.py

@@ -175,7 +175,7 @@
     .tm-contact{margin-top:16px;padding-top:12px;border-top:1px solid var(--line);color:#6A7078}
     .tm-check{display:flex;align-items:center;gap:10px;padding:14px 24px;border-top:1px solid var(--line);font-size:13px;font-weight:600;color:#181A1F;cursor:pointer}
     .tm-check input{width:17px;height:17px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;margin:0}
-    .tm-modal .pl-cta{margin:0 24px 20px}
+    .tm-modal .pl-cta{width:auto;margin:0 24px 20px}
     @media(max-width:640px){.logo-mini span{display:none}.tab span.tl{display:none}.tab{padding:9px 11px}.planos span{display:none}.demo-badge span.dl{display:none}}
   </style>
 </head>
@@ -240,44 +240,7 @@
         <div><div class="tm-title">Termos de Uso e Política de Privacidade</div>
         <div class="tm-sub">Leia e aceite para continuar usando o Arena AMP.</div></div>
       </div>
-      <div class="tm-body" id="tm-body">
-        <p class="tm-upd">Última atualização: julho de 2026 · Versão 1</p>
-
-        <h4>1. Aceitação</h4>
-        <p>Ao utilizar o Arena AMP ("Sistema"), você (o "Cliente") declara ter lido e concordado com estes Termos de Uso e com a Política de Privacidade abaixo. Se não concordar, não utilize o Sistema.</p>
-
-        <h4>2. Licença de uso</h4>
-        <p>O Sistema é licenciado, não vendido. Enquanto a assinatura estiver ativa, o Cliente recebe uma licença pessoal, intransferível e não exclusiva para uso do Sistema em seus próprios equipamentos, para gestão do seu negócio. É vedado copiar, redistribuir, sublicenciar, revender, descompilar ou realizar engenharia reversa do Sistema.</p>
-
-        <h4>3. Responsabilidades do Cliente</h4>
-        <p>O Cliente é o único responsável por: (a) a veracidade e a legalidade dos dados que insere; (b) a guarda de suas credenciais de acesso (login e senha); (c) o uso que faz do Sistema e das informações nele contidas; (d) manter cópias de segurança (backups) dos seus dados; e (e) o cumprimento das leis aplicáveis ao seu negócio (fiscais, trabalhistas, sanitárias, etc.).</p>
-
-        <h4>4. Dados e Privacidade (LGPD)</h4>
-        <p>Os dados operacionais inseridos pelo Cliente (alunos, clientes, pagamentos, etc.) ficam armazenados <strong>localmente</strong>, no equipamento do próprio Cliente. Para fins da Lei nº 13.709/2018 (LGPD), o <strong>Cliente é o Controlador</strong> desses dados, sendo responsável por coletar e tratar dados pessoais de terceiros com a devida base legal e finalidade. O desenvolvedor atua apenas como fornecedor da ferramenta e <strong>não coleta, acessa nem armazena</strong> esses dados operacionais em seus servidores. Os únicos dados trafegados para o servidor de licenças são os necessários à validação da assinatura (chave de licença, identificador do equipamento e versão do aplicativo).</p>
-
-        <h4>5. Isenção e limitação de responsabilidade</h4>
-        <p>O Sistema é fornecido "no estado em que se encontra", sem garantias de que funcionará de forma ininterrupta ou livre de erros. Na máxima extensão permitida pela lei, o desenvolvedor <strong>não se responsabiliza</strong> por: (a) perdas de dados, lucros cessantes ou danos indiretos; (b) decisões tomadas pelo Cliente com base em informações do Sistema; (c) indisponibilidade decorrente de falhas de equipamento, energia, internet ou de terceiros; e (d) uso indevido do Sistema. A responsabilidade total do desenvolvedor, em qualquer hipótese, fica limitada ao valor pago pelo Cliente nos últimos 3 (três) meses de assinatura.</p>
-
-        <h4>6. Pagamentos e assinatura</h4>
-        <p>O acesso depende de assinatura ativa. A falta de pagamento pode suspender o acesso aos módulos. Os pagamentos são processados por plataforma terceira (Mercado Pago); o desenvolvedor não armazena dados de cartão. Valores e condições podem ser reajustados mediante aviso prévio.</p>
-
-        <h4>7. Propriedade intelectual</h4>
-        <p>Todo o Sistema, marca, layout e código-fonte são de propriedade do desenvolvedor. Os dados inseridos pelo Cliente permanecem de propriedade do Cliente.</p>
-
-        <h4>8. Atualizações</h4>
-        <p>O Sistema pode ser atualizado automaticamente para correções e melhorias. Algumas atualizações podem ser obrigatórias para a continuidade do uso.</p>
-
-        <h4>9. Vigência e rescisão</h4>
-        <p>Estes Termos vigoram enquanto o Cliente usar o Sistema. O desenvolvedor pode suspender o acesso em caso de descumprimento destes Termos ou de inadimplência. O Cliente pode encerrar o uso a qualquer momento.</p>
-
-        <h4>10. Alterações nos Termos</h4>
-        <p>Estes Termos podem ser atualizados. Havendo alteração relevante, um novo aceite será solicitado no próximo acesso.</p>
-
-        <h4>11. Foro e legislação</h4>
-        <p>Aplica-se a legislação brasileira. Fica eleito o foro da comarca do desenvolvedor para dirimir eventuais controvérsias, salvo disposição legal em contrário.</p>
-
-        <p class="tm-contact">Dúvidas sobre estes Termos? Fale com <strong>{{ dev_name }}</strong> pelos canais de suporte do Hub.</p>
-      </div>
+      <div class="tm-body" id="tm-body"><!-- preenchido via /api/terms --></div>
       <label class="tm-check"><input type="checkbox" id="tm-agree"> <span>Li e concordo com os Termos de Uso e a Política de Privacidade.</span></label>
       <button class="pl-cta" id="tm-accept" disabled><i class="fa-solid fa-check"></i> Aceitar e continuar</button>
     </div>
@@ -306,7 +269,6 @@
 
   <script>
     var PLAN = {{ plan|tojson }};
-    var TERMS_OK = {{ terms_ok|tojson }};
     var MUST_SET_PW = {{ must_set_password|tojson }};
     var IS_DEV = {{ is_dev|tojson }};
   </script>
@@ -607,17 +569,26 @@
 
     // ── TERMOS DE USO: bloqueia até aceitar (1º acesso / nova versão) ──
     function showTermsIfNeeded(){
-      if (TERMS_OK) return;
-      var back = $('#tm-back'), agree = $('#tm-agree'), btn = $('#tm-accept');
-      back.classList.add('show');
-      agree.addEventListener('change', function(){ btn.disabled = !agree.checked; });
-      btn.addEventListener('click', function(){
-        btn.disabled = true; btn.innerHTML = 'Salvando…';
-        fetch('/api/terms/accept', {method:'POST'}).then(function(r){ return r.json(); }).then(function(d){
-          if (d && d.ok) { back.classList.remove('show'); }
-          else { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check"></i> Aceitar e continuar'; }
-        }).catch(function(){ btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check"></i> Aceitar e continuar'; });
-      });
+      // Busca os termos vigentes do servidor. Se a versão mudou (ou nunca
+      // aceitou), preenche o modal com o texto atual e exige o aceite.
+      fetch('/api/terms').then(function(r){ return r.ok ? r.json() : null; }).then(function(t){
+        if (!t || !t.version || !t.html) return;         // servidor fora do ar → não bloqueia
+        if (String(t.accepted || '') === String(t.version)) return;  // já aceitou esta versão
+        var back = $('#tm-back'), agree = $('#tm-agree'), btn = $('#tm-accept');
+        $('#tm-body').innerHTML = t.html;
+        agree.checked = false; btn.disabled = true;
+        back.classList.add('show');
+        agree.addEventListener('change', function(){ btn.disabled = !agree.checked; });
+        btn.addEventListener('click', function(){
+          btn.disabled = true; btn.innerHTML = 'Salvando…';
+          fetch('/api/terms/accept', {method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({version: t.version})})
+            .then(function(r){ return r.json(); }).then(function(d){
+              if (d && d.ok) { back.classList.remove('show'); }
+              else { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check"></i> Aceitar e continuar'; }
+            }).catch(function(){ btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check"></i> Aceitar e continuar'; });
+        });
+      }).catch(function(){});
     }
 
     // ── DEFINIR SENHA (senha padrão) — antes dos termos, também bloqueante ──

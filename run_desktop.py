@@ -80,6 +80,13 @@ def _free_port():
 
 def _ensure_admin():
     with flask_app.app_context():
+        # 1º migra colunas que faltam (updates com campo novo), 2º cria tabelas
+        # novas, e só ENTÃO consulta — senão crasharia com 'no such column'.
+        try:
+            from app import _auto_migrate
+            _auto_migrate()
+        except Exception:
+            pass
         db.create_all()
         admin = User.query.filter_by(username='admin').first()
         if not admin:
