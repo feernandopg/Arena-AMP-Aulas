@@ -10,3 +10,5 @@ run_desktop.build/
 run_desktop.dist/
 Output/
 *.spec
+
+nuitka-crash-report.xml
