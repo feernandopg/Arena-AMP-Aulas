@@ -36,6 +36,8 @@ python -m nuitka --standalone --mingw64 ^
   --include-data-dir=ranking_static=ranking_static ^
   --include-data-dir=comandas_static=comandas_static ^
   --include-data-dir=relatorios_static=relatorios_static ^
+  --include-package=certifi ^
+  --include-package-data=certifi ^
   --windows-icon-from-ico=static\logo.ico ^
   --output-filename="Arena AMP.exe" ^
   --company-name="Fernando Prestes Godinho" ^

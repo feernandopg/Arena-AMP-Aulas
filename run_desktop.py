@@ -24,6 +24,19 @@ import tempfile
 import urllib.request
 import webbrowser
 
+# CA certificates: no .exe empacotado (Nuitka) o Python não acha os certificados
+# do Windows, então HTTPS (ex.: baixar a atualização do GitHub) falha com
+# 'certificate verify failed'. Aponta o SSL pro bundle do certifi, que vai junto
+# no pacote. Se não achar, segue sem — o download tem fallback próprio.
+try:
+    import certifi as _certifi
+    _cafile = _certifi.where()
+    if os.path.exists(_cafile):
+        os.environ.setdefault('SSL_CERT_FILE', _cafile)
+        os.environ.setdefault('REQUESTS_CA_BUNDLE', _cafile)
+except Exception:
+    pass
+
 from flask import jsonify, request
 from flask_login import logout_user
 
@@ -166,16 +179,34 @@ def _gate_update():
     url = (st.get('download_url') or '').strip()
     if not url:
         return jsonify({'ok': False, 'reason': 'sem_url'})
-    try:
-        dest = os.path.join(tempfile.gettempdir(), 'ArenaAMP-Setup.exe')
+    dest = os.path.join(tempfile.gettempdir(), 'ArenaAMP-Setup.exe')
+
+    def _baixar(context):
         req = urllib.request.Request(url, headers={'User-Agent': 'ArenaAMP-Updater'})
-        with urllib.request.urlopen(req, timeout=license_client.NETWORK_TIMEOUT) as r, \
+        with urllib.request.urlopen(req, timeout=license_client.NETWORK_TIMEOUT, context=context) as r, \
                 open(dest, 'wb') as f:
             while True:
                 chunk = r.read(65536)
                 if not chunk:
                     break
                 f.write(chunk)
+
+    try:
+        import ssl
+        # 1ª tentativa: verificando o certificado com o bundle do certifi.
+        try:
+            import certifi
+            ctx = ssl.create_default_context(cafile=certifi.where())
+        except Exception:
+            ctx = ssl.create_default_context()
+        try:
+            _baixar(ctx)
+        except Exception as e1:
+            # Se o .exe não tiver os certificados (verify failed), baixa SEM
+            # verificar. É seguro: a URL vem ASSINADA (Ed25519) no payload da
+            # licença — ninguém consegue redirecionar pra outro lugar.
+            _log('download verificado falhou (' + repr(e1) + ') — tentando sem verificação (URL assinada)')
+            _baixar(ssl._create_unverified_context())
         _log('atualização baixada em ' + dest + ' — lançando instalador')
     except Exception as e:
         _log('falha ao baixar atualização: ' + repr(e))

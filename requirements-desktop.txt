@@ -4,4 +4,5 @@ flask-sqlalchemy
 flask-login
 werkzeug
 cryptography
+certifi
 nuitka
