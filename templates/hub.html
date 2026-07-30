@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ arena.arena_name }} — Hub</title>
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='logo.ico') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -157,6 +158,10 @@
     </style>
 </head>
 <body>
+  <div id="hub-boot" style="position:fixed;inset:0;z-index:9999;background:#0E1420;display:flex;align-items:center;justify-content:center;transition:opacity .3s">
+    <div style="width:42px;height:42px;border-radius:50%;border:4px solid rgba(255,255,255,.14);border-top-color:#E8B04B;animation:hbspin .7s linear infinite"></div>
+  </div>
+  <style>@keyframes hbspin{to{transform:rotate(360deg)}}</style>
   <div class="wrap">
     <div class="hero">
       <div class="hero-left">
@@ -393,7 +398,7 @@
 
       // Identidade central (PG System) + nome/logo do cliente — vindos do /admin.
       // Assinatura "por <marca>" variável: muda no painel e reflete em todos.
-      fetch('/api/brand').then(function(r){ return r.json(); }).then(function(b){
+      var pBrand = fetch('/api/brand').then(function(r){ return r.json(); }).then(function(b){
         if (!b) return;
         if (b.brand_name){ var f=document.getElementById('foot-sig'); if(f)f.textContent=b.brand_name;
                            var s=document.getElementById('sobre-sig'); if(s)s.textContent=b.brand_name; }
@@ -411,7 +416,7 @@
       }).catch(function(){});
 
       // Banner remoto (você controla no painel de licenças)
-      fetch('/api/banner').then(function(r){ return r.json(); }).then(function(d){
+      var pBanner = fetch('/api/banner').then(function(r){ return r.json(); }).then(function(d){
         var txt = (d && d.banner || '').trim();
         if (!txt) return;
         if (sessionStorage.getItem('amp_banner_dismiss') === txt) return;
@@ -441,7 +446,7 @@
 
       // Banners promocionais (lista), configurados no /admin — valem pra todos os
       // produtos. Se houver mais de um, faz rotação automática a cada 6s.
-      fetch('/api/promo').then(function(r){ return r.json(); }).then(function(p){
+      var pPromo = fetch('/api/promo').then(function(r){ return r.json(); }).then(function(p){
         var banners = (p && p.banners && p.banners.length) ? p.banners
                     : (p && p.image_url ? [{image_url: p.image_url, wa_text: p.wa_text}] : []);
         if (!banners.length) return;
@@ -461,6 +466,12 @@
           setInterval(function(){ i = (i + 1) % banners.length; paint(); }, 6000);
         }
       }).catch(function(){});
+
+      // Segura o Hub até marca + banner + promo carregarem (sem "pop-in"). Teto
+      // de 1.8s pra nunca travar se o servidor estiver lento.
+      function revealHub(){ var o=document.getElementById('hub-boot'); if(o){ o.style.opacity='0'; setTimeout(function(){ o.style.display='none'; },300); } }
+      Promise.allSettled([pBrand, pBanner, pPromo]).then(revealHub);
+      setTimeout(revealHub, 1800);
     })();
   </script>
 </body>

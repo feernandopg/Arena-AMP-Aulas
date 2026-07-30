@@ -211,7 +211,7 @@ def _check_cached(local, machine_id):
         return upd
 
     return {'status': 'ok', 'reason': 'offline_grace',
-            'modules': payload.get('modules', 'aulas')}
+            'modules': payload.get('modules', '')}
 
 
 # ── API pública do módulo ─────────────────────────────────────────────────────
@@ -251,7 +251,7 @@ def check_license():
             if upd:
                 return upd
             return {'status': 'ok', 'reason': res['reason'],
-                    'modules': res['payload'].get('modules', 'aulas')}
+                    'modules': res['payload'].get('modules', '')}
         # cortada/suspensa/demo expirada/outro_pc → bloqueia
         return {'status': 'blocked', 'reason': res['reason']}
 
@@ -389,7 +389,7 @@ def get_modules():
     off = _check_cached(local, get_machine_id())
     _save_local(local)
     if off and off.get('status') == 'ok':
-        raw = off.get('modules') or 'aulas'
+        raw = off.get('modules') or ''   # vazio = NENHUM módulo (à prova de falhas)
         return [m.strip() for m in raw.split(',') if m.strip()]
     return []
 
