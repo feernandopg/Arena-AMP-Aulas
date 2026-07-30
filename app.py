@@ -410,7 +410,7 @@ def api_brand():
     """Identidade central do estúdio (PG System) + nome/logo deste cliente,
     definidos no /admin. O app usa pra assinar 'por <marca>' e mostrar o contato
     de suporte de forma variável. Fallback embutido se o servidor não responder."""
-    fb = {'brand_name': 'PG System', 'brand_legal': 'Fernando Prestes Godinho',
+    fb = {'brand_name': 'PG SYSTEMS', 'brand_legal': 'Fernando Prestes Godinho',
           'brand_contact': 'WhatsApp (11) 97244-7927 · fehgodinho98@gmail.com',
           'product_name': '', 'product_logo': ''}
     if os.environ.get('AMP_DEV'):

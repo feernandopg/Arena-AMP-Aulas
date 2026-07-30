@@ -287,7 +287,7 @@
 
     <footer class="hub-foot">
       <span class="hf-ver"><span id="foot-prod">Arena AMP</span>{% if app_version %} · v{{ app_version }}{% endif %}</span>
-      <a class="hf-sig" id="hub-sobre" href="#">por <b id="foot-sig">PG System</b> <i class="fa-solid fa-chevron-right"></i></a>
+      <a class="hf-sig" id="hub-sobre" href="#">por <b id="foot-sig">PG SYSTEMS</b> <i class="fa-solid fa-chevron-right"></i></a>
     </footer>
   </div>
 
@@ -329,7 +329,8 @@
       </div>
       <div class="so-body">
         <div class="so-eye">Projetado e desenvolvido por</div>
-        <div class="so-sign" id="sobre-sig">PG System</div>
+        <img id="sobre-brand-logo" alt="" style="display:none;max-height:44px;max-width:200px;margin:2px 0 2px">
+        <div class="so-sign" id="sobre-sig">PG SYSTEMS</div>
         <div class="so-rule"></div>
         <div class="so-rows">
           <a class="so-row" href="{{ plan.contato.whatsapp_link }}" target="_blank" rel="noopener"><span><i class="fa-brands fa-whatsapp"></i> WhatsApp</span><b>{{ plan.contato.whatsapp }}</b></a>
@@ -399,9 +400,13 @@
         if (b.product_name){ var fp=document.getElementById('foot-prod'); if(fp)fp.textContent=b.product_name;
                              var sp=document.getElementById('sobre-prod'); if(sp)sp.textContent=b.product_name; }
         if (b.product_logo){
-          var lg=document.getElementById('so-logo-img');
           var box=document.querySelector('.so-logo');
           if (box){ box.innerHTML='<img id="so-logo-img" src="'+b.product_logo+'" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:inherit">'; }
+        }
+        if (b.brand_logo){   // co-brand PG SYSTEMS no "Sobre" (a logo da SUA marca)
+          var bl=document.getElementById('sobre-brand-logo');
+          if (bl){ bl.src=b.brand_logo; bl.style.display='block';
+                   var s2=document.getElementById('sobre-sig'); if(s2)s2.style.display='none'; }
         }
       }).catch(function(){});
 
