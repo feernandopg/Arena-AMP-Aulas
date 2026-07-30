@@ -10,7 +10,7 @@
 ; ============================================================
 
 #define AppName "Arena AMP"
-#define AppVersion "3.5"
+#define AppVersion "3.6"
 #define AppPublisher "Fernando Prestes Godinho"
 #define AppExe "Arena AMP.exe"
 ; Precisa BATER com APP_MUTEX em run_desktop.py — é assim que o instalador
@@ -51,4 +51,6 @@ Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"
 Name: "{userdesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#AppExe}"; Description: "Abrir o {#AppName} agora"; Flags: nowait postinstall skipifsilent
+; nowait: não trava o instalador esperando o app. SEM skipifsilent: numa
+; atualização silenciosa (/VERYSILENT) o app REABRE sozinho ao terminar.
+Filename: "{app}\{#AppExe}"; Description: "Abrir o {#AppName} agora"; Flags: nowait

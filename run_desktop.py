@@ -57,6 +57,8 @@ SUPPORT_CONTACT = "Fernando · WhatsApp (11) 97244-7927 · fehgodinho98@gmail.co
 _flask_started = False
 _base_url = None
 _last_beat = time.time()
+_edge_proc = None                       # processo da janela do Edge (pra fechar no update)
+_update = {'phase': 'idle', 'pct': 0}   # progresso da atualização (download/instalação)
 
 
 def _log(msg):
@@ -168,30 +170,52 @@ def _gate_activate():
     return jsonify(license_client.activate(key))
 
 
-@flask_app.route('/_gate/update', methods=['POST'])
-def _gate_update():
-    """Baixa o instalador da atualização (URL vem ASSINADA pelo servidor) e o
-    executa, encerrando o app pra liberar os arquivos. Só roda quando a
-    checagem de licença retornou status 'update_required'."""
-    st = license_client.check_license()
-    if st.get('status') != 'update_required':
-        return jsonify({'ok': False, 'reason': 'sem_atualizacao'})
-    url = (st.get('download_url') or '').strip()
-    if not url:
-        return jsonify({'ok': False, 'reason': 'sem_url'})
+def _fechar_janela_edge():
+    """Fecha a janela antiga do app (o Edge --app que abrimos) pra não ficar
+    uma sobrando atrás da nova depois da atualização. Best-effort."""
+    global _edge_proc
+    try:
+        if _edge_proc and _edge_proc.poll() is None:
+            # /T mata a árvore (o processo pai do Edge cria filhos).
+            subprocess.run(['taskkill', '/F', '/T', '/PID', str(_edge_proc.pid)],
+                           creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+                           timeout=5)
+    except Exception as e:
+        _log('não consegui fechar a janela antiga: ' + repr(e))
+
+
+def _rodar_atualizacao(url):
+    """Roda em thread: baixa o instalador (com barra de progresso via _update),
+    instala em modo silencioso (sem o assistente do Inno aparecer), fecha a
+    janela antiga e encerra o processo. A URL vem ASSINADA (Ed25519) — não dá
+    pra um MITM redirecionar o download."""
+    global _update
     dest = os.path.join(tempfile.gettempdir(), 'ArenaAMP-Setup.exe')
 
     def _baixar(context):
         req = urllib.request.Request(url, headers={'User-Agent': 'ArenaAMP-Updater'})
         with urllib.request.urlopen(req, timeout=license_client.NETWORK_TIMEOUT, context=context) as r, \
                 open(dest, 'wb') as f:
+            total = 0
+            try:
+                total = int(r.headers.get('Content-Length') or 0)
+            except Exception:
+                total = 0
+            baixado = 0
             while True:
                 chunk = r.read(65536)
                 if not chunk:
                     break
                 f.write(chunk)
+                baixado += len(chunk)
+                if total > 0:
+                    _update['pct'] = min(99, int(baixado * 100 / total))
+                else:
+                    # Sem Content-Length: mostra um progresso "andando".
+                    _update['pct'] = min(95, _update.get('pct', 0) + 1)
 
     try:
+        _update = {'phase': 'downloading', 'pct': 0}
         import ssl
         # 1ª tentativa: verificando o certificado com o bundle do certifi.
         try:
@@ -207,18 +231,54 @@ def _gate_update():
             # licença — ninguém consegue redirecionar pra outro lugar.
             _log('download verificado falhou (' + repr(e1) + ') — tentando sem verificação (URL assinada)')
             _baixar(ssl._create_unverified_context())
-        _log('atualização baixada em ' + dest + ' — lançando instalador')
+        _update['pct'] = 100
+        _log('atualização baixada em ' + dest + ' — instalando em silêncio')
     except Exception as e:
         _log('falha ao baixar atualização: ' + repr(e))
-        return jsonify({'ok': False, 'reason': 'download_falhou'})
-    # Lança o instalador e encerra o app (libera os arquivos pra sobrescrever).
+        _update = {'phase': 'error', 'pct': 0, 'reason': 'download_falhou'}
+        return
+
+    # Instala em modo silencioso: /VERYSILENT esconde o assistente do Inno,
+    # /SUPPRESSMSGBOXES evita qualquer popup, /NORESTART não reinicia o PC.
+    # O installer.iss usa CloseApplications + [Run] sem skipifsilent, então
+    # ele fecha o app e REABRE a nova versão sozinho ao terminar.
     try:
-        subprocess.Popen([dest])
+        _update = {'phase': 'installing', 'pct': 100}
+        time.sleep(1.2)  # deixa a UI mostrar "Instalando…" antes de morrer
+        subprocess.Popen([dest, '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'])
     except Exception as e:
         _log('falha ao lançar instalador: ' + repr(e))
-        return jsonify({'ok': False, 'reason': 'exec_falhou'})
-    threading.Timer(1.0, lambda: os._exit(0)).start()
+        _update = {'phase': 'error', 'pct': 100, 'reason': 'exec_falhou'}
+        return
+
+    # Fecha a janela antiga e encerra este processo pra liberar os arquivos.
+    _fechar_janela_edge()
+    threading.Timer(1.5, lambda: os._exit(0)).start()
+
+
+@flask_app.route('/_gate/update', methods=['POST'])
+def _gate_update():
+    """Dispara a atualização em segundo plano (download + instalação silenciosa)
+    e devolve na hora. A tela acompanha o progresso via /_gate/update/progress.
+    Só roda quando a checagem de licença retornou status 'update_required'."""
+    global _update
+    if _update.get('phase') in ('downloading', 'installing'):
+        return jsonify({'ok': True, 'ja_rodando': True})
+    st = license_client.check_license()
+    if st.get('status') != 'update_required':
+        return jsonify({'ok': False, 'reason': 'sem_atualizacao'})
+    url = (st.get('download_url') or '').strip()
+    if not url:
+        return jsonify({'ok': False, 'reason': 'sem_url'})
+    _update = {'phase': 'downloading', 'pct': 0}
+    threading.Thread(target=_rodar_atualizacao, args=(url,), daemon=True).start()
     return jsonify({'ok': True})
+
+
+@flask_app.route('/_gate/update/progress')
+def _gate_update_progress():
+    """Estado atual da atualização, pra barra de progresso na tela do gate."""
+    return jsonify(_update)
 
 
 # ── "Batimento" janela↔servidor: mantém o backend vivo só enquanto a janela existe ──
@@ -291,7 +351,8 @@ def _open_window_edge(url):
         profile = os.path.join(_local_data_dir(), 'edge-profile')
         _log('abrindo janela via Edge: ' + edge)
         try:
-            subprocess.Popen([
+            global _edge_proc
+            _edge_proc = subprocess.Popen([
                 edge, f'--app={url}',
                 f'--user-data-dir={profile}',
                 '--no-first-run', '--no-default-browser-check',
@@ -321,6 +382,8 @@ GATE_HTML = """
 <!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0A1420">
+<link rel="icon" type="image/x-icon" href="/static/logo.ico">
+<link rel="shortcut icon" type="image/x-icon" href="/static/logo.ico">
 <title>Arena AMP</title>
 <style>
   *{box-sizing:border-box;} body{margin:0;font-family:system-ui,Segoe UI,sans-serif;
@@ -339,6 +402,11 @@ GATE_HTML = """
   .spin{display:inline-block;width:16px;height:16px;border:2px solid #fff;border-top-color:transparent;
     border-radius:50%;animation:s .7s linear infinite;vertical-align:middle;} @keyframes s{to{transform:rotate(360deg)}}
   .spin.big{width:44px;height:44px;border-width:4px;border-color:#f97316;border-top-color:transparent;}
+  .bar{width:100%;height:12px;border-radius:8px;background:#0f172a;border:1px solid #475569;
+    overflow:hidden;margin:6px 0 4px;}
+  .bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#f97316,#fb923c);
+    border-radius:8px;transition:width .3s ease;}
+  .pct{font-size:.85rem;color:#cbd5e1;font-weight:600;}
 </style></head><body>
 __TITLEBAR__
 <div class="box" id="box">
@@ -351,6 +419,10 @@ __TITLEBAR__
   </div>
   <div id="retry" style="display:none;"><button onclick="init()">Tentar novamente</button></div>
   <div id="update" style="display:none;"><button id="upbtn" onclick="doUpdate()">Baixar e instalar atualização</button></div>
+  <div id="upprog" style="display:none;">
+    <div class="bar"><i id="upbar"></i></div>
+    <div class="pct" id="uppct">0%</div>
+  </div>
   <div class="msg" id="msg"></div>
 </div>
 <script>
@@ -371,7 +443,7 @@ __TITLEBAR__
     $('logo').innerHTML='<span class="spin big"></span>';
     $('title').textContent='Verificando licença…';
     $('subtitle').textContent='Conectando ao servidor…'; $('msg').textContent='';
-    show('form',false); show('retry',false); show('update',false);
+    show('form',false); show('retry',false); show('update',false); show('upprog',false);
     startWaitHints();
     try {
       const st = await (await fetch('/_gate/state')).json();
@@ -399,7 +471,7 @@ __TITLEBAR__
       $('logo').textContent='⬆️'; $('title').textContent='Atualização obrigatória';
       $('subtitle').innerHTML='Há uma nova versão do sistema.<br>Atualize para continuar usando.';
       $('upbtn').disabled=false; $('upbtn').textContent='Baixar e instalar atualização';
-      show('update',true); return;
+      show('upprog',false); show('update',true); return;
     }
     $('logo').textContent = st.status==='offline_blocked' ? '📡' : '🔒';
     if(st.status==='offline_blocked'){
@@ -433,26 +505,57 @@ __TITLEBAR__
     $('msg').innerHTML='<span class="err">Licença não reconhecida ou suspensa.</span>';
   }
 
+  function setBar(p){ $('upbar').style.width=p+'%'; $('uppct').textContent=p+'%'; }
+
   async function doUpdate(){
-    $('upbtn').disabled=true; $('upbtn').innerHTML='<span class="spin"></span> Baixando atualização…';
-    $('msg').textContent='Isso pode levar um minuto. Não feche o sistema.';
+    // Dispara a atualização e some com o botão — daqui pra frente é tudo
+    // automático (baixa, instala em silêncio e reabre sozinho).
     let r;
     try {
       r = await (await fetch('/_gate/update',{method:'POST'})).json();
     } catch(e){
-      // O app pode encerrar no meio (esperado) — se a resposta sumir, é porque
-      // o instalador já abriu. Só mostramos erro se claramente falhou antes.
-      $('msg').innerHTML='<span class="err">Se o instalador não abrir, verifique sua internet e tente de novo.</span>';
-      $('upbtn').disabled=false; $('upbtn').textContent='Baixar e instalar atualização'; return;
-    }
-    if(r && r.ok){
-      $('logo').textContent='⬇️'; $('title').textContent='Instalando…';
-      $('subtitle').textContent='O instalador vai abrir. Siga os passos para concluir.';
-      show('update',false); $('msg').textContent='';
+      $('msg').innerHTML='<span class="err">Não foi possível iniciar. Verifique a internet e tente de novo.</span>';
       return;
     }
-    $('upbtn').disabled=false; $('upbtn').textContent='Tentar novamente';
-    $('msg').innerHTML='<span class="err">Não foi possível baixar a atualização. Verifique a internet.</span>';
+    if(!(r && r.ok)){
+      $('msg').innerHTML='<span class="err">Não foi possível iniciar a atualização. Verifique a internet.</span>';
+      return;
+    }
+    show('update',false); show('upprog',true);
+    $('logo').innerHTML='<span class="spin big"></span>';
+    $('title').textContent='Baixando atualização…';
+    $('subtitle').textContent='Não feche o sistema. Ele vai reabrir sozinho quando terminar.';
+    $('msg').textContent=''; setBar(0);
+    pollUpdate();
+  }
+
+  async function pollUpdate(){
+    let st;
+    try {
+      st = await (await fetch('/_gate/update/progress')).json();
+    } catch(e){
+      // Se a resposta sumir, é porque o app já encerrou pra instalar (esperado).
+      return;
+    }
+    if(st.phase==='downloading'){
+      $('title').textContent='Baixando atualização…'; setBar(st.pct||0);
+      setTimeout(pollUpdate,400); return;
+    }
+    if(st.phase==='installing'){
+      $('title').textContent='Instalando…';
+      $('subtitle').textContent='Quase lá — o sistema vai reabrir sozinho em instantes.';
+      setBar(100); setTimeout(pollUpdate,600); return;
+    }
+    if(st.phase==='error'){
+      show('upprog',false); show('update',true);
+      $('logo').textContent='⚠️'; $('title').textContent='Atualização obrigatória';
+      $('subtitle').innerHTML='Há uma nova versão do sistema.<br>Atualize para continuar usando.';
+      $('upbtn').disabled=false; $('upbtn').textContent='Tentar novamente';
+      $('msg').innerHTML='<span class="err">Não foi possível baixar a atualização. Verifique a internet.</span>';
+      return;
+    }
+    // idle/desconhecido: continua checando um pouco
+    setTimeout(pollUpdate,600);
   }
 
   document.addEventListener('input', e=>{

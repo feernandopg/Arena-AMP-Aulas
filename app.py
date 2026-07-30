@@ -403,6 +403,27 @@ def api_prices():
     except Exception:
         return jsonify({})
 
+
+@app.route('/api/brand')
+@login_required
+def api_brand():
+    """Identidade central do estúdio (PG System) + nome/logo deste cliente,
+    definidos no /admin. O app usa pra assinar 'por <marca>' e mostrar o contato
+    de suporte de forma variável. Fallback embutido se o servidor não responder."""
+    fb = {'brand_name': 'PG System', 'brand_legal': 'Fernando Prestes Godinho',
+          'brand_contact': 'WhatsApp (11) 97244-7927 · fehgodinho98@gmail.com',
+          'product_name': '', 'product_logo': ''}
+    if os.environ.get('AMP_DEV'):
+        return jsonify(fb)
+    try:
+        import license_client
+        data = license_client.get_brand() or {}
+        for k, v in fb.items():
+            data.setdefault(k, v)
+        return jsonify(data)
+    except Exception:
+        return jsonify(fb)
+
 @app.route('/api/manutencao', methods=['POST'])
 @login_required
 def api_manutencao():
@@ -767,8 +788,14 @@ def api_assinatura():
         return jsonify({'error': 'Acesso restrito.'}), 403
     if DEV_MODE:
         info = _plan_info()
+        # Stub de dev com um site JÁ ALINHADO ao sistema, pra visualizar o aviso.
+        from datetime import datetime, timezone, timedelta
+        venc = (datetime.now(timezone.utc) + timedelta(days=18)).isoformat()
         return jsonify({'plan': info['plan'], 'active': info['is_premium'],
-                        'expires_at': '', 'ciclo': None, 'desde': None, 'pagamentos': []})
+                        'expires_at': venc, 'ciclo': 'Mensal', 'desde': None,
+                        'has_site': True, 'site_ativo': True, 'site_alinhado': True,
+                        'site_expires_at': venc, 'site_started_at': venc,
+                        'pagamentos': []})
     try:
         import license_client
         return jsonify(license_client.subscription_info())

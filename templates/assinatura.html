@@ -53,6 +53,11 @@
     .asub-nm{font-size:15px;font-weight:800;letter-spacing:-.2px;display:flex;align-items:center;gap:7px}
     .asub-tag{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:#EEF1F4;padding:2px 7px;border-radius:20px}
     .asub-sub{font-size:12px;color:var(--muted);margin-top:1px}
+    .align-note{margin-top:12px;display:flex;gap:10px;align-items:flex-start;padding:11px 13px;
+      border-radius:11px;background:linear-gradient(180deg,#F1F9EF,#F7FCF5);border:1px solid #CDE8C4}
+    .align-note i{color:var(--ok);font-size:14px;margin-top:1px;flex-shrink:0}
+    .align-note b{color:#2E7D22}
+    .align-note .an-tx{font-size:12px;line-height:1.5;color:#3B5233}
     .asub-pr{text-align:right;font-size:16px;font-weight:800;color:var(--navy);white-space:nowrap}
     .asub-pr small{font-size:11px;font-weight:600;color:var(--muted)}
     .cta-site{margin-top:14px}
@@ -196,16 +201,26 @@
       if (siteDesde) siteRows += '<div class="row"><span class="l">Contratado em</span><span class="v">'+fmtData(siteDesde)+'</span></div>';
       if (siteExp) siteRows += '<div class="row"><span class="l">Próximo vencimento</span><span class="v">'+fmtData(siteExp)+'</span></div>';
       if (siteRows) h += '<div class="rows" style="margin-top:12px">'+siteRows+'</div>';
+      // Aviso: quando o site foi alinhado ao vencimento do sistema, explicamos
+      // pro cliente que agora renovam juntos (e que ele ganhou dias de cortesia).
+      if (info.site_alinhado) {
+        h += '<div class="align-note"><i class="fa-solid fa-circle-check"></i>'
+          + '<div class="an-tx"><b>Site e sistema vencem no mesmo dia.</b> '
+          + 'Ajustamos o vencimento do seu site pra bater com o do sistema — '
+          + 'com alguns dias de cortesia — pra você <b>renovar tudo de uma vez, '
+          + 'numa mensalidade só</b>. Nenhum dia que você pagou é perdido.</div></div>';
+      }
       if (!info.has_site) {
         h += '<div class="asub-sub" style="margin-top:10px">Um site sob medida pra sua arena, com manutenção inclusa. É uma assinatura à parte do sistema.</div>';
       }
+      // O site é uma assinatura PRÓPRIA, à parte do sistema — não exige ser
+      // assinante do sistema (igual ao fluxo pelo módulo Site). Só limitamos a
+      // RENOVAÇÃO antecipada a partir de 15 dias antes do vencimento.
       var podeRenovar = !siteAtivo || (sd != null && sd <= 15);
-      if (premium && podeRenovar) {
+      if (podeRenovar) {
         h += '<button class="cta cta-site" onclick="siteCheckout()"><i class="fa-solid fa-globe"></i> '+(siteAtivo?'Renovar site':'Contratar site')+'</button>';
-      } else if (premium) {
-        h += '<div class="muted" style="margin-top:14px">Renovação liberada a partir de 15 dias antes do vencimento.</div>';
       } else {
-        h += '<div class="muted" style="margin-top:12px">Disponível para assinantes do sistema.</div>';
+        h += '<div class="muted" style="margin-top:14px">Renovação liberada a partir de 15 dias antes do vencimento.</div>';
       }
       h += '</div>';
 

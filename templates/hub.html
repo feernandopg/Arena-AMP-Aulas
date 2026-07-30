@@ -176,12 +176,8 @@
         </div>
       </div>
     </div>
-    {% if plan.plan == 'demo' %}
-    <a class="hub-notice hub-demo" id="hub-demo" href="#">
-      <span><i class="fa-solid fa-hourglass-half"></i> Você está no <b>período de teste</b>{% if plan.demo_days_left is not none %} — <b>{{ plan.demo_days_left }} dia(s)</b> restante(s){% endif %}.</span>
-      <span class="cta">Assinar agora <i class="fa-solid fa-arrow-right"></i></span>
-    </a>
-    {% endif %}
+    {# O aviso de período de teste agora fica no selo do topo (barra do chrome),
+       perto do botão de planos — some daqui pra não competir com o banner. #}
     {% if not modules %}
     <a class="hub-notice hub-locked" id="hub-locked" href="#">
       {% if plan.plan == 'demo_expirada' %}
@@ -290,8 +286,8 @@
     </div>
 
     <footer class="hub-foot">
-      <span class="hf-ver">Arena AMP{% if app_version %} · v{{ app_version }}{% endif %}</span>
-      <a class="hf-sig" id="hub-sobre" href="#">Desenvolvido por <b>Fernando Prestes Godinho</b> <i class="fa-solid fa-chevron-right"></i></a>
+      <span class="hf-ver"><span id="foot-prod">Arena AMP</span>{% if app_version %} · v{{ app_version }}{% endif %}</span>
+      <a class="hf-sig" id="hub-sobre" href="#">por <b id="foot-sig">PG System</b> <i class="fa-solid fa-chevron-right"></i></a>
     </footer>
   </div>
 
@@ -329,11 +325,11 @@
       <button class="hb-close" id="sobre-close"><i class="fa-solid fa-xmark"></i></button>
       <div class="so-hero">
         <span class="so-logo"><i class="fa-solid fa-table-tennis-paddle-ball"></i></span>
-        <div><div class="so-nm">Arena AMP</div><div class="so-sub">Ecossistema de gestão para arenas</div></div>
+        <div><div class="so-nm" id="sobre-prod">Arena AMP</div><div class="so-sub">Ecossistema de gestão para arenas</div></div>
       </div>
       <div class="so-body">
         <div class="so-eye">Projetado e desenvolvido por</div>
-        <div class="so-sign">Fernando Prestes Godinho</div>
+        <div class="so-sign" id="sobre-sig">PG System</div>
         <div class="so-rule"></div>
         <div class="so-rows">
           <a class="so-row" href="{{ plan.contato.whatsapp_link }}" target="_blank" rel="noopener"><span><i class="fa-brands fa-whatsapp"></i> WhatsApp</span><b>{{ plan.contato.whatsapp }}</b></a>
@@ -393,6 +389,21 @@
       if (sa) sa.addEventListener('click', function(){ closeModal('site-back'); if (inShell) window.parent.postMessage({ amp: 'planos' }, '*'); });
       var sb = document.getElementById('hub-sobre');
       if (sb) sb.addEventListener('click', function(e){ e.preventDefault(); openModal('sobre-back'); });
+
+      // Identidade central (PG System) + nome/logo do cliente — vindos do /admin.
+      // Assinatura "por <marca>" variável: muda no painel e reflete em todos.
+      fetch('/api/brand').then(function(r){ return r.json(); }).then(function(b){
+        if (!b) return;
+        if (b.brand_name){ var f=document.getElementById('foot-sig'); if(f)f.textContent=b.brand_name;
+                           var s=document.getElementById('sobre-sig'); if(s)s.textContent=b.brand_name; }
+        if (b.product_name){ var fp=document.getElementById('foot-prod'); if(fp)fp.textContent=b.product_name;
+                             var sp=document.getElementById('sobre-prod'); if(sp)sp.textContent=b.product_name; }
+        if (b.product_logo){
+          var lg=document.getElementById('so-logo-img');
+          var box=document.querySelector('.so-logo');
+          if (box){ box.innerHTML='<img id="so-logo-img" src="'+b.product_logo+'" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:inherit">'; }
+        }
+      }).catch(function(){});
 
       // Banner remoto (você controla no painel de licenças)
       fetch('/api/banner').then(function(r){ return r.json(); }).then(function(d){

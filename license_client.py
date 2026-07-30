@@ -335,10 +335,10 @@ def get_promo():
 
 
 def get_prices():
-    """Preços vigentes (sistema/site, em reais) definidos no /admin. Público.
-    Falha silenciosa → {} (o app usa os preços padrão embutidos)."""
+    """Preços vigentes DESTE PRODUTO (sistema/site, em reais) definidos no /admin.
+    Público. Falha silenciosa → {} (o app usa os preços padrão embutidos)."""
     try:
-        req = urllib.request.Request(LICENSE_SERVER_URL.rstrip('/') + '/api/prices')
+        req = urllib.request.Request(LICENSE_SERVER_URL.rstrip('/') + '/api/prices?product=' + PRODUCT)
         with urllib.request.urlopen(req, timeout=10) as resp:
             return json.loads(resp.read().decode())
     except Exception:
@@ -346,10 +346,22 @@ def get_prices():
 
 
 def get_terms():
-    """Termos de Uso vigentes (versão + HTML), definidos no /admin. Público.
-    Retorna {'version':..., 'html':...} ou {} se o servidor não responder."""
+    """Termos de Uso vigentes DESTE PRODUTO (versão + HTML), definidos no /admin.
+    Público. Retorna {'version':..., 'html':...} ou {} se o servidor não responder."""
     try:
-        req = urllib.request.Request(LICENSE_SERVER_URL.rstrip('/') + '/api/terms')
+        req = urllib.request.Request(LICENSE_SERVER_URL.rstrip('/') + '/api/terms?product=' + PRODUCT)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read().decode())
+    except Exception:
+        return {}
+
+
+def get_brand():
+    """Identidade central do estúdio (PG System) + nome/logo deste produto.
+    Público, fail-silent. Usado pra assinar 'por <marca>' e mostrar o contato de
+    suporte de forma VARIÁVEL (muda no /admin e reflete em todos os apps)."""
+    try:
+        req = urllib.request.Request(LICENSE_SERVER_URL.rstrip('/') + '/api/brand?product=' + PRODUCT)
         with urllib.request.urlopen(req, timeout=10) as resp:
             return json.loads(resp.read().decode())
     except Exception:
