@@ -378,6 +378,8 @@
     };
     // Add-on Site profissional: R$/mês por ciclo (mensal cheio; trimestral 5% off).
     var SITE_MES = {mensal:20, trimestral:19};
+    // Compra à vista (pagamento único): ligada/desligada pelo /admin.
+    var BUY_ON = true;
     var selPlano = 'trimestral';
     var selSite = false;
     function waLink(msg){ return wa + '?text=' + encodeURIComponent('Olá! Tenho interesse ' + msg + ' do Arena AMP.'); }
@@ -458,10 +460,10 @@
           + '<div class="pr"><b>+R$ ' + SITE_MES[selPlano] + '</b><small>/mês</small></div></div>';
       }
 
-      var comprar = '<div class="pl-sec">Ou compre o sistema</div>'
+      var comprar = !BUY_ON ? '' : ('<div class="pl-sec">Ou compre o sistema</div>'
         + '<div class="pl-opt' + (selPlano === 'comprar' ? ' sel' : '') + '" data-plan="comprar" style="border-style:dashed">'
         + '<span class="radio"></span><div class="info"><div class="nm">Comprar o sistema</div><div class="dt">Pagamento único — o sistema é seu</div></div>'
-        + '<div class="pr"><b>R$ 3.100</b></div></div>';
+        + '<div class="pr"><b>' + PLANOS.comprar.preco + '</b></div></div>');
 
       var incluso = '<div class="pl-sec">Incluso</div>'
         + '<div class="pl-feat"><i class="fa-solid fa-check"></i><div><b>Suporte prioritário</b> ao sistema.</div></div>'
@@ -657,6 +659,13 @@
       PLANOS.trimestral.det = money(sTriTot) + ' a cada 3 meses';
       SITE_MES.mensal = p.site.mensal;
       SITE_MES.trimestral = Math.round(p.site.trimestral / 3);
+      if (p.comprar) {
+        BUY_ON = p.comprar.enabled !== false;
+        var pv = money(p.comprar.preco);
+        PLANOS.comprar.preco = pv;
+        PLANOS.comprar.msg = 'em comprar o sistema (' + pv + ')';
+        if (!BUY_ON && selPlano === 'comprar') selPlano = 'trimestral';
+      }
       // se o modal já estiver aberto, redesenha com os novos valores
       if ($('#pl-back').classList.contains('show')) { $('#pl-body').innerHTML = planBodyHTML(); wirePlanBody(); }
     }).catch(function(){});
