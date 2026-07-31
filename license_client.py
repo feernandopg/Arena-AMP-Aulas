@@ -34,7 +34,7 @@ except Exception:
 # ══════════════════════════════════════════════════════════════════════════════
 LICENSE_SERVER_URL = os.environ.get(
     'LICENSE_SERVER_URL',
-    'https://arena-amp-licencas.onrender.com'  # servidor de licença no Render
+    'https://arena-amp-licencas-nl7l.onrender.com'  # servidor de licença no Render
 )
 
 GRACE_DAYS = 5          # dias que o sistema funciona sem internet
