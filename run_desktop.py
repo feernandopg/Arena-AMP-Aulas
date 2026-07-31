@@ -294,6 +294,17 @@ def _gate_update_progress():
     return jsonify(_update)
 
 
+@flask_app.route('/_gate/reset', methods=['POST'])
+def _gate_reset():
+    """Esquece a licença guardada neste PC (apaga o license.json) pra o app
+    voltar a pedir uma chave. Não toca no arena.db (dados do cliente)."""
+    try:
+        license_client.clear_key()
+    except Exception as e:
+        _log('falha ao limpar licença: ' + repr(e))
+    return jsonify({'ok': True})
+
+
 # ── "Batimento" janela↔servidor: mantém o backend vivo só enquanto a janela existe ──
 @flask_app.route('/_beat')
 def _beat():
@@ -440,6 +451,7 @@ __TITLEBAR__
   </div>
   <div id="retry" style="display:none;"><button onclick="init()">Tentar novamente</button></div>
   <div id="update" style="display:none;"><button id="upbtn" onclick="doUpdate()">Baixar e instalar atualização</button></div>
+  <div id="reset" style="display:none;margin-top:10px"><button onclick="doReset()" style="background:transparent;border:1px solid #475569;color:#cbd5e1">Usar outra chave de licença</button></div>
   <div id="upprog" style="display:none;">
     <div class="bar"><i id="upbar"></i></div>
     <div class="pct" id="uppct">0%</div>
@@ -464,7 +476,7 @@ __TITLEBAR__
     $('logo').innerHTML='<span class="spin big"></span>';
     $('title').textContent='Verificando licença…';
     $('subtitle').textContent='Conectando ao servidor…'; $('msg').textContent='';
-    show('form',false); show('retry',false); show('update',false); show('upprog',false);
+    show('form',false); show('retry',false); show('update',false); show('upprog',false); show('reset',false);
     startWaitHints();
     try {
       const st = await (await fetch('/_gate/state')).json();
@@ -502,8 +514,13 @@ __TITLEBAR__
       $('title').textContent='Acesso suspenso';
       $('subtitle').innerHTML='Este sistema está temporariamente desativado.<br>Entre em contato para regularizar:';
       $('msg').innerHTML='<div class="contact">'+SUPPORT+'</div>';
+      show('reset',true);   // permite trocar de chave (ex.: licença movida de PC)
     }
     show('retry',true);
+  }
+  function doReset(){
+    if(!confirm('Isto desconecta esta licença deste computador pra você entrar com OUTRA chave.\\n\\nOs dados do sistema (alunos, comandas etc.) NÃO são apagados. Continuar?')) return;
+    fetch('/_gate/reset',{method:'POST'}).then(function(){ init(); }).catch(function(){ init(); });
   }
 
   async function doActivate(){

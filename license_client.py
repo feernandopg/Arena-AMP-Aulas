@@ -281,6 +281,25 @@ def current_key():
     return _load_local().get('license_key', '')
 
 
+def clear_key():
+    """Esquece a licença guardada neste PC (apaga o license.json) pra o app
+    voltar a pedir uma chave. Usado no 'Usar outra chave' — resolve o caso de
+    cortar/desvincular pra reusar a mesma key em outro computador. NÃO mexe no
+    arena.db (dados operacionais do cliente)."""
+    try:
+        f = _license_file()
+        if os.path.exists(f):
+            os.remove(f)
+        return True
+    except Exception:
+        # fallback: zera o conteúdo se não conseguir apagar
+        try:
+            _save_local({})
+            return True
+        except Exception:
+            return False
+
+
 # ── Checkout (pagamento) ───────────────────────────────────────────────────────
 def _post_json(path, body):
     """POST JSON pro license-server. Devolve o dict de resposta (200 ou erro
