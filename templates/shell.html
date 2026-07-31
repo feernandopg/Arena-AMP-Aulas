@@ -430,6 +430,8 @@
     }
     function planBodyHTML(){
       if (PLAN.is_premium) return premiumBodyHTML();
+      // Se já tem site ativo, NUNCA oferecer/cobrar o site de novo.
+      if (PLAN.has_site) selSite = false;
 
       var demo = (PLAN.plan === 'demo' && PLAN.demo_days_left != null)
         ? '<div class="pl-active" style="background:rgba(255,122,26,.12);border-color:rgba(255,122,26,.4);color:#B65A10"><i class="fa-solid fa-hourglass-half"></i> Período de teste — '
@@ -445,9 +447,9 @@
       }
       var assinaturas = '<div class="pl-sec">Assinatura</div>' + opt('mensal') + opt('trimestral');
 
-      // Add-on Site (só faz sentido pra assinatura, não pra compra única).
+      // Add-on Site: só pra assinatura (não compra única) E se ainda NÃO tem site.
       var addon = '';
-      if (selPlano !== 'comprar') {
+      if (selPlano !== 'comprar' && !PLAN.has_site) {
         addon = '<div class="pl-sec">Adicional</div>'
           + '<div class="pl-opt pl-addon' + (selSite ? ' sel' : '') + '" id="pl-site-toggle">'
           + '<span class="check"><i class="fa-solid fa-check"></i></span>'
