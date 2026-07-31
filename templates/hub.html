@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" translate="no">
 <head>
     <meta charset="UTF-8">
+    <meta name="google" content="notranslate">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ arena.arena_name }} — Hub</title>
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='logo.ico') }}">
@@ -105,7 +106,12 @@
       .sm-feat .fi{width:34px;height:34px;border-radius:10px;background:rgba(240,212,136,.16);color:#B0871E;display:grid;place-items:center;font-size:14px;flex-shrink:0}
       .sm-feat b{display:block;font-size:13.5px;font-weight:700;color:var(--ink)}
       .sm-feat span{font-size:12px;color:var(--muted);line-height:1.35}
-      .sm-price{margin-top:18px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;background:#FCFBF8}
+      .sm-domain{margin-top:16px;padding:14px 16px;border:1px solid #E4EAF1;border-radius:12px;background:#F4F8FC}
+      .sm-domain-h{font-size:13px;font-weight:800;color:var(--navy);display:flex;align-items:center;gap:8px;margin-bottom:7px}
+      .sm-domain p{font-size:12px;color:#5B6675;line-height:1.5}
+      .sm-domain ul{margin:8px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:5px}
+      .sm-domain li{font-size:12px;color:#5B6675;line-height:1.45}
+      .sm-price{margin-top:14px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;background:#FCFBF8}
       .sm-price .pl{display:block;font-size:11px;color:var(--muted);font-weight:600}
       .sm-price .pv{font-size:24px;font-weight:800;color:var(--navy)}
       .sm-price .pv small{font-size:12px;font-weight:600;color:var(--muted)}
@@ -314,9 +320,18 @@
           <div class="sm-feat"><span class="fi"><i class="fa-solid fa-chart-line"></i></span><div><b>Métricas de verdade</b><span>Veja quantas pessoas visitam e de onde vêm.</span></div></div>
           <div class="sm-feat"><span class="fi"><i class="fa-solid fa-cookie-bite"></i></span><div><b>Cookies e LGPD</b><span>Aviso de cookies e conformidade, do jeito profissional.</span></div></div>
         </div>
+        <div class="sm-domain">
+          <div class="sm-domain-h"><i class="fa-solid fa-globe"></i> Sobre o domínio (o endereço do site)</div>
+          <p>O <b>domínio</b> é o endereço que as pessoas digitam pra achar seu site — ex.: <b>suaarena.com.br</b>. Ele é <b>obrigatório</b> e contratado <b>à parte</b>, direto num registrador (ex.: registro.br).</p>
+          <ul>
+            <li><b>Pago 1× por ano</b> (não é mensal). Um <b>.com.br</b> custa em média <b>R$ 40 a R$ 60/ano</b>.</li>
+            <li>O nome que você quer <b>pode já estar em uso</b> — nesse caso a gente escolhe junto uma variação boa.</li>
+            <li>A gente te ajuda a registrar e deixa tudo apontando certo.</li>
+          </ul>
+        </div>
         <div class="sm-price">
-          <div><span class="pl">A partir de</span><span class="pv">+R$ 20<small>/mês</small></span></div>
-          <span class="pn">Some ao seu plano atual. Cancele quando quiser.</span>
+          <div><span class="pl">Fica assim</span><span class="pv">R$ 20<small>/mês</small> <span style="font-size:13px;color:#8FA3B8">+ domínio (~R$ 50/ano)</span></span></div>
+          <span class="pn">Site: mensal, some ao seu plano. Domínio: 1× por ano, direto no registrador. Cancele quando quiser.</span>
         </div>
         <button class="sm-cta" id="site-assinar"><i class="fa-solid fa-crown"></i> Adicionar à minha assinatura</button>
         <a class="sm-wa" href="{{ plan.contato.whatsapp_link }}?text={{ 'Olá! Quero saber mais sobre o site profissional pra minha arena.'|urlencode }}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> Tirar dúvidas no WhatsApp</a>
@@ -330,7 +345,7 @@
       <button class="hb-close" id="sobre-close"><i class="fa-solid fa-xmark"></i></button>
       <div class="so-hero">
         <span class="so-logo"><i class="fa-solid fa-table-tennis-paddle-ball"></i></span>
-        <div><div class="so-nm" id="sobre-prod">Arena AMP</div><div class="so-sub">Ecossistema de gestão para arenas</div></div>
+        <div><div class="so-nm" id="sobre-prod">Arena AMP</div></div>
       </div>
       <div class="so-body">
         <div class="so-eye">Projetado e desenvolvido por</div>
@@ -406,7 +421,7 @@
                              var sp=document.getElementById('sobre-prod'); if(sp)sp.textContent=b.product_name; }
         if (b.product_logo){
           var box=document.querySelector('.so-logo');
-          if (box){ box.innerHTML='<img id="so-logo-img" src="'+b.product_logo+'" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:inherit">'; }
+          if (box){ box.style.background='transparent'; box.innerHTML='<img id="so-logo-img" src="'+b.product_logo+'" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:inherit">'; }
         }
         if (b.brand_logo){   // co-brand PG SYSTEMS no "Sobre" (a logo da SUA marca)
           var bl=document.getElementById('sobre-brand-logo');

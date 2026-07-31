@@ -1,12 +1,13 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" translate="no">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0A1420">
+  <meta name="google" content="notranslate">
   <title>{{ arena.arena_name }} — Ecossistema</title>
-  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='logo.ico') }}">
-  <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
+  <link id="fav-ico" rel="icon" type="image/x-icon" href="{{ url_for('static', filename='logo.ico') }}">
+  <link id="fav-png" rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -665,6 +666,18 @@
         mostrarVenc(candidatos[0].d, candidatos[0].q);
       }).catch(function(){});
     })();
+  </script>
+  <script>
+    // Tira "cara de navegador": bloqueia o menu de contexto do Edge.
+    document.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+    // Favicon = logo do cliente (definida no /admin) → também vira o ícone da
+    // janela/barra de tarefas no Edge --app. Cache-buster pra refletir troca.
+    fetch('/api/brand').then(function(r){ return r.json(); }).then(function(b){
+      if (b && b.product_logo){
+        var url = b.product_logo + (b.product_logo.indexOf('?')<0?'?':'&') + 't=' + Date.now();
+        ['fav-ico','fav-png'].forEach(function(id){ var l=document.getElementById(id); if(l) l.setAttribute('href', url); });
+      }
+    }).catch(function(){});
   </script>
 </body>
 </html>

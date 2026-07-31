@@ -244,16 +244,29 @@ def _rodar_atualizacao(url):
     # ele fecha o app e REABRE a nova versão sozinho ao terminar.
     try:
         _update = {'phase': 'installing', 'pct': 100}
-        time.sleep(1.2)  # deixa a UI mostrar "Instalando…" antes de morrer
-        subprocess.Popen([dest, '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'])
+        time.sleep(1.0)  # deixa a UI mostrar "Instalando…" antes de morrer
+        # DESACOPLA o instalador do processo do app: sem isto, quando o app
+        # encerra (os._exit) o job object do Windows mata o instalador no meio
+        # da instalação — era por isso que "instalava, fechava e nada acontecia".
+        flags = (getattr(subprocess, 'DETACHED_PROCESS', 0x8)
+                 | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0x200)
+                 | getattr(subprocess, 'CREATE_BREAKAWAY_FROM_JOB', 0x1000000))
+        try:
+            subprocess.Popen([dest, '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'],
+                             creationflags=flags, close_fds=True)
+        except OSError:
+            # Se o breakaway falhar (raro), tenta só desacoplado.
+            subprocess.Popen([dest, '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'],
+                             creationflags=getattr(subprocess, 'DETACHED_PROCESS', 0x8), close_fds=True)
     except Exception as e:
         _log('falha ao lançar instalador: ' + repr(e))
         _update = {'phase': 'error', 'pct': 100, 'reason': 'exec_falhou'}
         return
 
-    # Fecha a janela antiga e encerra este processo pra liberar os arquivos.
+    # Fecha a janela antiga e encerra este processo pra liberar os arquivos
+    # (o instalador já está desacoplado e sobrevive ao fim do app).
     _fechar_janela_edge()
-    threading.Timer(1.5, lambda: os._exit(0)).start()
+    threading.Timer(1.2, lambda: os._exit(0)).start()
 
 
 @flask_app.route('/_gate/update', methods=['POST'])
@@ -357,6 +370,14 @@ def _open_window_edge(url):
                 f'--user-data-dir={profile}',
                 '--no-first-run', '--no-default-browser-check',
                 '--window-size=1180,800',
+                # Tira "cara de navegador": sem tradução, sem mini-menu de seleção,
+                # sem sugestões/serviços web do Edge.
+                '--disable-features=Translate,TranslateUI,msEdgeTranslate,msTranslateBubble,'
+                'msEdgeMiniMenu,msMiniMenu,MSAcrobat,msEdgeSidebar,msWebOOBE,msEdgeShoppingAssist',
+                '--disable-translate',
+                '--disable-sync',
+                '--no-service-autorun',
+                '--disable-component-update',
             ])
             return
         except Exception as e:
