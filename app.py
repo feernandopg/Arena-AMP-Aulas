@@ -545,6 +545,39 @@ def api_checkout():
     return jsonify(res), (200 if res.get('checkout_url') else 502)
 
 
+@app.route('/api/subscribe', methods=['POST'])
+@login_required
+def api_subscribe():
+    """Inicia uma ASSINATURA recorrente (cartão, renova sozinha). Só admin."""
+    if not adm_required():
+        return jsonify({'error': 'Acesso restrito ao administrador.'}), 403
+    if DEV_MODE:
+        return jsonify({'error': 'Indisponível em modo de desenvolvimento.'}), 400
+    data = request.get_json(silent=True) or {}
+    try:
+        import license_client
+        res = license_client.create_subscription(data.get('plan'), bool(data.get('site')), data.get('email'))
+    except Exception:
+        res = {'error': 'Falha ao conectar ao servidor de licenças.'}
+    return jsonify(res), (200 if res.get('init_point') else 502)
+
+
+@app.route('/api/subscription/cancel', methods=['POST'])
+@login_required
+def api_subscription_cancel():
+    """Cancela a assinatura recorrente. Só admin."""
+    if not adm_required():
+        return jsonify({'error': 'Acesso restrito ao administrador.'}), 403
+    if DEV_MODE:
+        return jsonify({'error': 'Indisponível em modo de desenvolvimento.'}), 400
+    try:
+        import license_client
+        res = license_client.cancel_subscription()
+    except Exception:
+        res = {'error': 'Falha ao conectar ao servidor de licenças.'}
+    return jsonify(res), (200 if res.get('ok') else 502)
+
+
 @app.route('/api/checkout/verify', methods=['POST'])
 @login_required
 def api_checkout_verify():

@@ -61,6 +61,11 @@
     .asub-pr{text-align:right;font-size:16px;font-weight:800;color:var(--navy);white-space:nowrap}
     .asub-pr small{font-size:11px;font-weight:600;color:var(--muted)}
     .cta-site{margin-top:14px}
+    .sub-rec{margin-top:16px;padding:14px 16px;border:1px solid #CDE8C4;background:#F1F9EF;border-radius:12px;font-size:13px;color:#2E7D22}
+    .sub-rec-plan{font-size:11px;background:#DCF0D5;color:#2E7D22;border-radius:20px;padding:2px 9px;font-weight:700;margin-left:4px}
+    .sub-rec-note{font-size:11.5px;color:#5B6675;margin-top:5px}
+    .cta-cancel{margin-top:12px;color:#B03A3A;border-color:#E5C4C4}
+    .cta-cancel:hover{background:#FCF0F0}
     .empty{text-align:center;color:var(--muted);font-size:13px;padding:6px 0 2px}
     .muted{color:var(--muted);font-size:12.5px;margin-top:14px;text-align:center}
     .load{color:var(--muted);font-size:13px;text-align:center;padding:30px 0}
@@ -105,6 +110,14 @@
     function abrirPlanos(){
       if (inShell) window.parent.postMessage({ amp:'planos' }, '*');
       else window.location.href = '/';
+    }
+    function cancelarAssinatura(btn){
+      if (!confirm('Cancelar a renovação automática? Seu acesso continua até o fim do período já pago; depois disso ele não renova sozinho.')) return;
+      btn.disabled = true; btn.innerHTML = 'Cancelando…';
+      fetch('/api/subscription/cancel', {method:'POST'}).then(function(r){ return r.json(); }).then(function(res){
+        if (res && res.ok) { location.reload(); }
+        else { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-xmark"></i> Cancelar renovação automática'; alert(res.error || 'Não foi possível cancelar. Tente de novo.'); }
+      }).catch(function(){ btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-xmark"></i> Cancelar renovação automática'; alert('Falha de conexão.'); });
     }
     function siteCheckout(){
       // Checkout avulso do site (assinatura própria, R$20). Abre o Mercado Pago
@@ -175,7 +188,13 @@
         + '<div style="flex:1"><div class="asub-nm">Sistema <span class="asub-tag">Arena AMP</span></div>'
         + '<div class="status '+stCls+'"><span class="sdot"></span>'+stTxt+'</div></div></div>';
       if (sysRows) h += '<div class="rows" style="margin-top:12px">'+sysRows+'</div>';
-      if (premium && !vencido) {
+      if (info.sub_ativa) {
+        // Assinatura recorrente ativa: mostra e permite cancelar.
+        h += '<div class="sub-rec"><i class="fa-solid fa-repeat"></i> <b>Renovação automática ativa</b>'
+          + ' <span class="sub-rec-plan">' + (info.sub_plan === 'trimestral' ? 'trimestral' : 'mensal') + '</span>'
+          + '<div class="sub-rec-note">Cobrado automático no cartão. Você não precisa fazer nada.</div>'
+          + '<button class="cta cta-outline cta-cancel" onclick="cancelarAssinatura(this)"><i class="fa-solid fa-xmark"></i> Cancelar renovação automática</button></div>';
+      } else if (premium && !vencido) {
         h += '<button class="cta cta-site cta-outline" onclick="abrirPlanos()"><i class="fa-solid fa-arrows-rotate"></i> Renovar ou mudar de plano</button>';
       } else {
         h += '<button class="cta cta-site" onclick="abrirPlanos()"><i class="fa-solid fa-crown"></i> '

@@ -312,6 +312,26 @@ def create_checkout(plan, site=False):
     return _post_json('/api/checkout/create', body)
 
 
+def create_subscription(plan, site, email):
+    """Cria uma ASSINATURA recorrente (cartão, renova sozinha) no MP. Retorna
+    {'init_point':...} (link pra autorizar) ou {'error':...}."""
+    key = current_key()
+    if not key:
+        return {'error': 'Nenhuma licença ativada neste PC.'}
+    body = {'license_key': key, 'machine_id': get_machine_id(),
+            'plan': plan, 'site': bool(site), 'email': (email or '').strip()}
+    return _post_json('/api/subscribe', body)
+
+
+def cancel_subscription():
+    """Cancela a assinatura recorrente. Retorna {'ok':True} ou {'error':...}."""
+    key = current_key()
+    if not key:
+        return {'error': 'Nenhuma licença ativada neste PC.'}
+    body = {'license_key': key, 'machine_id': get_machine_id()}
+    return _post_json('/api/subscription/cancel', body)
+
+
 def subscription_info():
     """Dados da assinatura desta licença (plano, vencimento, ciclo, histórico
     de pagamentos) pra montar a página de Assinatura. Retorna dict ou {'error'}."""
