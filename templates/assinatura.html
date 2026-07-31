@@ -112,7 +112,11 @@
       else window.location.href = '/';
     }
     function cancelarAssinatura(btn){
-      if (!confirm('Cancelar a renovação automática? Seu acesso continua até o fim do período já pago; depois disso ele não renova sozinho.')) return;
+      var d = btn.getAttribute('data-dias');
+      var msg = (d !== '' && d != null)
+        ? 'Cancelar a renovação automática?\n\nSeu acesso continua por mais ' + d + ' dia(s) (o período já pago). Depois disso ele NÃO renova sozinho.'
+        : 'Cancelar a renovação automática? Seu acesso continua até o fim do período já pago; depois disso ele não renova sozinho.';
+      if (!confirm(msg)) return;
       btn.disabled = true; btn.innerHTML = 'Cancelando…';
       fetch('/api/subscription/cancel', {method:'POST'}).then(function(r){ return r.json(); }).then(function(res){
         if (res && res.ok) { location.reload(); }
@@ -189,11 +193,16 @@
         + '<div class="status '+stCls+'"><span class="sdot"></span>'+stTxt+'</div></div></div>';
       if (sysRows) h += '<div class="rows" style="margin-top:12px">'+sysRows+'</div>';
       if (info.sub_ativa) {
-        // Assinatura recorrente ativa: mostra e permite cancelar.
+        // Assinatura recorrente ativa: mostra, informa dias restantes e permite cancelar.
+        var subDias = exp ? diasRestantes(exp) : null;
+        var restante = (subDias != null && subDias >= 0)
+          ? 'Se cancelar hoje, seu acesso continua por mais <b>' + subDias + ' dia(s)</b> (até ' + fmtData(exp) + ') — depois disso não renova sozinho.'
+          : 'Se cancelar, o acesso continua até o fim do período já pago.';
         h += '<div class="sub-rec"><i class="fa-solid fa-repeat"></i> <b>Renovação automática ativa</b>'
           + ' <span class="sub-rec-plan">' + (info.sub_plan === 'trimestral' ? 'trimestral' : 'mensal') + '</span>'
           + '<div class="sub-rec-note">Cobrado automático no cartão. Você não precisa fazer nada.</div>'
-          + '<button class="cta cta-outline cta-cancel" onclick="cancelarAssinatura(this)"><i class="fa-solid fa-xmark"></i> Cancelar renovação automática</button></div>';
+          + '<div class="sub-rec-note" style="margin-top:7px">' + restante + '</div>'
+          + '<button class="cta cta-outline cta-cancel" data-dias="' + (subDias != null ? subDias : '') + '" onclick="cancelarAssinatura(this)"><i class="fa-solid fa-xmark"></i> Cancelar renovação automática</button></div>';
       } else if (premium && !vencido) {
         h += '<button class="cta cta-site cta-outline" onclick="abrirPlanos()"><i class="fa-solid fa-arrows-rotate"></i> Renovar ou mudar de plano</button>';
       } else {
