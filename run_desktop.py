@@ -327,13 +327,26 @@ def _inject_beat(resp):
 
 
 def _watchdog():
-    # Espera a janela carregar (inclui o cold-start de ~30s da licença) antes de vigiar.
-    time.sleep(40)
+    # Vigia a JANELA (o processo do Edge). Se ela fecha, encerra o backend pra
+    # não deixar um processo zumbi. NÃO dependemos mais só do "batimento": o
+    # Chromium ESTRANGULA o setInterval quando a janela está minimizada/em
+    # segundo plano, e o watchdog matava o backend por engano (o famoso
+    # "127.0.0.1 recusou"). Agora o sinal principal é o processo do Edge estar
+    # vivo; o batimento é só um fallback com MUITA folga.
+    time.sleep(40)  # deixa a janela carregar (inclui o cold-start da licença)
     while True:
-        if time.time() - _last_beat > 12:
-            _log('watchdog: sem batimento — janela fechada, encerrando')
+        time.sleep(5)
+        proc = _edge_proc
+        if proc is not None:
+            if proc.poll() is not None:
+                _log('watchdog: janela do app fechada — encerrando')
+                os._exit(0)
+            continue  # Edge vivo → mantém o backend, mesmo minimizado/sem batimento
+        # Sem processo de janela conhecido (fallback): usa o batimento com folga
+        # grande, porque o Chromium em segundo plano pode espaçar até ~60s.
+        if time.time() - _last_beat > 180:
+            _log('watchdog: sem janela e sem batimento há muito tempo — encerrando')
             os._exit(0)
-        time.sleep(3)
 
 
 # ── Janela do app ─────────────────────────────────────────────────────────────
