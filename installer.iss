@@ -10,7 +10,7 @@
 ; ============================================================
 
 #define AppName "Arena AMP"
-#define AppVersion "3.13"
+#define AppVersion "3.14"
 #define AppPublisher "Fernando Prestes Godinho"
 #define AppExe "Arena AMP.exe"
 ; Precisa BATER com APP_MUTEX em run_desktop.py — é assim que o instalador
@@ -54,3 +54,24 @@ Name: "{userdesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopico
 ; nowait: não trava o instalador esperando o app. SEM skipifsilent: numa
 ; atualização silenciosa (/VERYSILENT) o app REABRE sozinho ao terminar.
 Filename: "{app}\{#AppExe}"; Description: "Abrir o {#AppName} agora"; Flags: nowait
+
+[Code]
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  rc: Integer;
+begin
+  if CurStep = ssInstall then
+  begin
+    { O app é um processo SEM JANELA (Nuitka, console desabilitado), então o
+      CloseApplications do Inno não o alcança e o "Arena AMP.exe" fica travado
+      em uso -> a atualização automática não conseguia sobrescrever os arquivos
+      e ficava em loop. Aqui a gente encerra o processo à força ANTES de copiar,
+      liberando os arquivos. Roda também pra clientes já instalados, porque quem
+      faz o kill é ESTE instalador (o novo), não o app antigo. }
+    { SEM /T: o instalador é processo-filho do app; /T mataria o próprio
+      instalador. /IM sozinho encerra só o "Arena AMP.exe" (não os filhos). }
+    Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM "Arena AMP.exe"',
+         '', SW_HIDE, ewWaitUntilTerminated, rc);
+    Sleep(1500);
+  end;
+end;
