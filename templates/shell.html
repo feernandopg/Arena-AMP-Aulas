@@ -2,6 +2,11 @@
 <html lang="pt-BR" translate="no">
 <head>
   <meta charset="UTF-8">
+  <!-- Anti-aninhamento: o shell NUNCA deve rodar dentro de outro iframe (senão
+       vira "shell dentro de shell" = barra de cima duplicada). Se um módulo
+       navegar acidentalmente pra "/" (ex.: "Voltar ao Sistema" do /restore
+       dentro do iframe), a gente estoura pra fora reassumindo a janela toda. -->
+  <script>if(window.top&&window.top!==window.self){window.top.location.replace('/');}</script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0A1420">
   <meta name="google" content="notranslate">

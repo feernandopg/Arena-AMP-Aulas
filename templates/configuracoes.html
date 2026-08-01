@@ -402,7 +402,9 @@
       b.classList.add('active');
       ['aulas','ranking','comandas'].forEach(s=>{ $('#bk-'+s).style.display = b.dataset.sys===s?'block':'none'; });
     }));
-    $('#btn-restore-aulas').addEventListener('click',()=>{ window.location.href='/restore'; });
+    // Abre o /restore na JANELA TODA (não dentro do iframe do Configurações),
+    // senão o "Voltar ao Sistema" recarrega o shell dentro do iframe = barra duplicada.
+    $('#btn-restore-aulas').addEventListener('click',()=>{ (window.top||window).location.href='/restore'; });
 
     // ── Manutenção preventiva (VACUUM + limpar logs antigos) ──
     $('#btn-manutencao').addEventListener('click',async()=>{
