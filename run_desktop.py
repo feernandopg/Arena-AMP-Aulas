@@ -182,7 +182,19 @@ def _fechar_janela_edge():
                            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
                            timeout=5)
     except Exception as e:
-        _log('não consegui fechar a janela antiga: ' + repr(e))
+        _log('fechar janela (pid) falhou: ' + repr(e))
+    # Rede de segurança: o Edge às vezes RE-LANÇA o processo, então o pid acima
+    # não pega a janela e ela ficava sobrando ("Instalando…") atrás da nova. Mata
+    # qualquer msedge que esteja mostrando a NOSSA janela (--app=http://127.0.0.1),
+    # sem tocar no Edge normal do usuário.
+    try:
+        ps = ("Get-CimInstance Win32_Process | Where-Object { "
+              "$_.Name -eq 'msedge.exe' -and $_.CommandLine -like '*app=http://127.0.0.1*' } | "
+              "ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }")
+        subprocess.run(['powershell', '-NoProfile', '-Command', ps],
+                       creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0), timeout=8)
+    except Exception as e:
+        _log('fechar janela (por --app) falhou: ' + repr(e))
 
 
 def _rodar_atualizacao(url):

@@ -10,7 +10,7 @@
 ; ============================================================
 
 #define AppName "Arena AMP"
-#define AppVersion "3.15"
+#define AppVersion "3.16"
 #define AppPublisher "Fernando Prestes Godinho"
 #define AppExe "Arena AMP.exe"
 ; Precisa BATER com APP_MUTEX em run_desktop.py — é assim que o instalador
@@ -73,6 +73,13 @@ begin
     { SEM /T: o instalador é processo-filho do app; /T mataria o próprio
       instalador. /IM sozinho encerra só o "Arena AMP.exe" (não os filhos). }
     Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM "Arena AMP.exe"',
+         '', SW_HIDE, ewWaitUntilTerminated, rc);
+    { Fecha a janela ANTIGA do Edge --app (a nossa, --app=http://127.0.0.1) pra
+      não ficar uma "Instalando…" sobrando atrás da nova depois de atualizar.
+      Filtra pela linha de comando, então NÃO mexe no Edge normal do usuário.
+      Roda aqui (no instalador) pra funcionar com qualquer versão do app. }
+    Exec('powershell.exe',
+         '-NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq ''msedge.exe'' -and $_.CommandLine -like ''*app=http://127.0.0.1*'' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"',
          '', SW_HIDE, ewWaitUntilTerminated, rc);
     Sleep(1500);
   end;
