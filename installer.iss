@@ -10,7 +10,7 @@
 ; ============================================================
 
 #define AppName "Arena AMP"
-#define AppVersion "3.14"
+#define AppVersion "3.15"
 #define AppPublisher "Fernando Prestes Godinho"
 #define AppExe "Arena AMP.exe"
 ; Precisa BATER com APP_MUTEX em run_desktop.py — é assim que o instalador
@@ -32,9 +32,11 @@ DisableProgramGroupPage=yes
 ; Instala sem exigir admin (fica na pasta do usuario)
 PrivilegesRequired=lowest
 SetupIconFile=static\logo.ico
-; Fecha o app se estiver aberto durante a atualização (usa o mutex do app).
-AppMutex={#AppMutexName}
-CloseApplications=yes
+; NÃO usar AppMutex/CloseApplications: o app é SEM JANELA (Nuitka), então o Inno
+; não consegue fechá-lo e, em modo silencioso, ABORTAVA a instalação logo no
+; começo (era a causa raiz do "atualiza mas continua na versão antiga"). Quem
+; encerra o app é o [Code] via taskkill, logo antes de copiar os arquivos.
+CloseApplications=no
 RestartApplications=no
 
 [Languages]

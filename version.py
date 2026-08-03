@@ -9,7 +9,7 @@ Ao lançar uma nova versão: suba este número, e por organização mantenha o
 mesmo valor em installer.iss (#define AppVersion) e build.bat (--file-version)
 — mas é ESTE arquivo que decide a lógica de atualização.
 """
-APP_VERSION = "3.14"
+APP_VERSION = "3.15"
 
 # Qual produto é este app. A espinha dorsal (licença/pagamento/atualização/
 # assinatura) é a mesma pra vários nichos; muda só os módulos e este id.

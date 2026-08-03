@@ -59,6 +59,7 @@ _base_url = None
 _last_beat = time.time()
 _edge_proc = None                       # processo da janela do Edge (pra fechar no update)
 _update = {'phase': 'idle', 'pct': 0}   # progresso da atualização (download/instalação)
+_update_lock = threading.Lock()        # garante UMA atualização por vez (sem downloads concorrentes)
 
 
 def _log(msg):
@@ -190,7 +191,13 @@ def _rodar_atualizacao(url):
     janela antiga e encerra o processo. A URL vem ASSINADA (Ed25519) — não dá
     pra um MITM redirecionar o download."""
     global _update
+    # Um download por vez: sem isto, dois disparos rodavam em paralelo e a barra
+    # oscilava (um escrevia 80, outro 12, no mesmo contador).
+    if not _update_lock.acquire(blocking=False):
+        _log('update: já em andamento — ignorando disparo duplicado')
+        return
     dest = os.path.join(tempfile.gettempdir(), 'ArenaAMP-Setup.exe')
+    _log('update: iniciando — url=' + (url or '(vazia)'))
 
     def _baixar(context):
         req = urllib.request.Request(url, headers={'User-Agent': 'ArenaAMP-Updater'})
@@ -209,10 +216,13 @@ def _rodar_atualizacao(url):
                 f.write(chunk)
                 baixado += len(chunk)
                 if total > 0:
-                    _update['pct'] = min(99, int(baixado * 100 / total))
+                    novo = min(99, int(baixado * 100 / total))
                 else:
                     # Sem Content-Length: mostra um progresso "andando".
-                    _update['pct'] = min(95, _update.get('pct', 0) + 1)
+                    novo = min(95, _update.get('pct', 0) + 1)
+                # NUNCA deixa a barra voltar (evita a oscilação vista em retry/redirect).
+                if novo > _update.get('pct', 0):
+                    _update['pct'] = novo
 
     try:
         _update = {'phase': 'downloading', 'pct': 0}
@@ -236,36 +246,49 @@ def _rodar_atualizacao(url):
     except Exception as e:
         _log('falha ao baixar atualização: ' + repr(e))
         _update = {'phase': 'error', 'pct': 0, 'reason': 'download_falhou'}
+        _update_lock.release()   # libera pra permitir "Tentar novamente"
         return
 
-    # Instala em modo silencioso: /VERYSILENT esconde o assistente do Inno,
-    # /SUPPRESSMSGBOXES evita qualquer popup, /NORESTART não reinicia o PC.
-    # O installer.iss usa CloseApplications + [Run] sem skipifsilent, então
-    # ele fecha o app e REABRE a nova versão sozinho ao terminar.
+    # Instala via um HELPER (.cmd) DESACOPLADO do app. O helper espera ~3s (o app
+    # morre em ~1.2s e libera o "Arena AMP.exe"), mata qualquer sobra do processo,
+    # e SÓ ENTÃO roda o instalador com /LOG. Assim: (a) some a corrida "instalar
+    # com o exe em uso" e (b) SEMPRE fica um log do instalador em
+    # %APPDATA%\ArenaAMP\inno_update.log, mesmo o app já tendo encerrado.
     try:
         _update = {'phase': 'installing', 'pct': 100}
-        time.sleep(1.0)  # deixa a UI mostrar "Instalando…" antes de morrer
-        # DESACOPLA o instalador do processo do app: sem isto, quando o app
-        # encerra (os._exit) o job object do Windows mata o instalador no meio
-        # da instalação — era por isso que "instalava, fechava e nada acontecia".
+        tam = os.path.getsize(dest) if os.path.exists(dest) else -1
+        _log('download OK (%d bytes) em %s' % (tam, dest))
+        innolog = os.path.join(_local_data_dir(), 'inno_update.log')
+        helper = os.path.join(tempfile.gettempdir(), 'arena_update.cmd')
+        with open(helper, 'w', encoding='ascii', errors='ignore') as fh:
+            fh.write('@echo off\r\n')
+            fh.write('ping -n 4 127.0.0.1 >nul\r\n')                  # ~3s: espera o app morrer
+            fh.write('taskkill /F /IM "Arena AMP.exe" >nul 2>&1\r\n')  # garante o exe liberado
+            fh.write('ping -n 2 127.0.0.1 >nul\r\n')
+            fh.write('"%s" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LOG="%s"\r\n' % (dest, innolog))
         flags = (getattr(subprocess, 'DETACHED_PROCESS', 0x8)
                  | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0x200)
-                 | getattr(subprocess, 'CREATE_BREAKAWAY_FROM_JOB', 0x1000000))
+                 | getattr(subprocess, 'CREATE_BREAKAWAY_FROM_JOB', 0x1000000)
+                 | getattr(subprocess, 'CREATE_NO_WINDOW', 0x8000000))
+        _log('lançando helper de instalação: ' + helper)
         try:
-            subprocess.Popen([dest, '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'],
-                             creationflags=flags, close_fds=True)
-        except OSError:
-            # Se o breakaway falhar (raro), tenta só desacoplado.
-            subprocess.Popen([dest, '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'],
-                             creationflags=getattr(subprocess, 'DETACHED_PROCESS', 0x8), close_fds=True)
+            subprocess.Popen(['cmd', '/c', helper], creationflags=flags, close_fds=True)
+        except OSError as e:
+            _log('breakaway falhou (%r) — tentando só desacoplado' % e)
+            subprocess.Popen(['cmd', '/c', helper],
+                             creationflags=getattr(subprocess, 'DETACHED_PROCESS', 0x8),
+                             close_fds=True)
+        _log('helper lançado; fechando janela e encerrando o app pra liberar os arquivos')
     except Exception as e:
         _log('falha ao lançar instalador: ' + repr(e))
         _update = {'phase': 'error', 'pct': 100, 'reason': 'exec_falhou'}
+        _update_lock.release()   # libera pra permitir "Tentar novamente"
         return
 
     # Fecha a janela antiga e encerra este processo pra liberar os arquivos
-    # (o instalador já está desacoplado e sobrevive ao fim do app).
+    # (o helper já está desacoplado e sobrevive ao fim do app).
     _fechar_janela_edge()
+    _log('encerrando o app em 1.2s (os._exit) — helper assume a instalação')
     threading.Timer(1.2, lambda: os._exit(0)).start()
 
 
