@@ -271,26 +271,23 @@ def _rodar_atualizacao(url):
         tam = os.path.getsize(dest) if os.path.exists(dest) else -1
         _log('download OK (%d bytes) em %s' % (tam, dest))
         innolog = os.path.join(_local_data_dir(), 'inno_update.log')
-        helper = os.path.join(tempfile.gettempdir(), 'arena_update.cmd')
-        with open(helper, 'w', encoding='ascii', errors='ignore') as fh:
-            fh.write('@echo off\r\n')
-            fh.write('ping -n 4 127.0.0.1 >nul\r\n')                  # ~3s: espera o app morrer
-            fh.write('taskkill /F /IM "Arena AMP.exe" >nul 2>&1\r\n')  # garante o exe liberado
-            fh.write('ping -n 2 127.0.0.1 >nul\r\n')
-            fh.write('"%s" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LOG="%s"\r\n' % (dest, innolog))
+        # Lança o INSTALADOR direto (sem cmd/ping) — assim NÃO pisca janela preta
+        # na cara do cliente. O instalador (installer.iss [Code]) já encerra o app,
+        # fecha a janela antiga e REABRE a nova sozinho. /LOG grava o que ele fez
+        # em %APPDATA%\ArenaAMP\inno_update.log. Sem console: DETACHED_PROCESS
+        # (Inno em /VERYSILENT não mostra GUI, então a atualização é invisível).
         flags = (getattr(subprocess, 'DETACHED_PROCESS', 0x8)
                  | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0x200)
-                 | getattr(subprocess, 'CREATE_BREAKAWAY_FROM_JOB', 0x1000000)
-                 | getattr(subprocess, 'CREATE_NO_WINDOW', 0x8000000))
-        _log('lançando helper de instalação: ' + helper)
+                 | getattr(subprocess, 'CREATE_BREAKAWAY_FROM_JOB', 0x1000000))
+        args = [dest, '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/LOG=' + innolog]
+        _log('lançando instalador (silencioso, sem janela)')
         try:
-            subprocess.Popen(['cmd', '/c', helper], creationflags=flags, close_fds=True)
+            subprocess.Popen(args, creationflags=flags, close_fds=True)
         except OSError as e:
             _log('breakaway falhou (%r) — tentando só desacoplado' % e)
-            subprocess.Popen(['cmd', '/c', helper],
-                             creationflags=getattr(subprocess, 'DETACHED_PROCESS', 0x8),
+            subprocess.Popen(args, creationflags=getattr(subprocess, 'DETACHED_PROCESS', 0x8),
                              close_fds=True)
-        _log('helper lançado; fechando janela e encerrando o app pra liberar os arquivos')
+        _log('instalador lançado; fechando janela e encerrando o app')
     except Exception as e:
         _log('falha ao lançar instalador: ' + repr(e))
         _update = {'phase': 'error', 'pct': 100, 'reason': 'exec_falhou'}
